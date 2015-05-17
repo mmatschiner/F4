@@ -18,7 +18,7 @@ The approach chosen by F4 is therefore to run simulations to assess support for 
 F4 is written in python3, therefore this version of python must be installed. It also uses a number of python packages, most of these however are likely to be installed on your machine anyway, if you have python. Only the two packages numpy and scipy may require additional installations. Importantly, F4 uses fastsimcoal2 for coalescent simulations, thus this program needs to be installed, and executable with <span style="font-family:Courier;">fsc252</span>, for F4 to run.
 
 #### F4 input
-To keep things simple (and to allow comparison), F4 uses the exact same input format as Treemix. It is described in the Treemix manual that you can download from [here](https://bitbucket.org/nygcresearch/treemix/wiki/Home "Nesta is a superb CMS"), but it also is simple enough to describe: It starts with a header line that lists the four population names, separated by spaces. It is followed by one line per SNP, listing the allele frequencies per population, again separated by spaces. This is how it goes:
+To keep things simple (and to allow comparison), F4 uses the exact same input format as Treemix. It is described in the Treemix manual that you can download from [here](https://bitbucket.org/nygcresearch/treemix/wiki/Home ), but it also is simple enough to describe: It starts with a header line that lists the four population names, separated by spaces. It is followed by one line per SNP, listing the allele frequencies per population, again separated by spaces. This is how it goes:
 
 <span style="font-family:Courier;">
 pop1 pop2 pop3 pop4  
@@ -29,7 +29,7 @@ pop1 pop2 pop3 pop4
 
 #### Example file
 
-The example file <span style="font-family:Courier;">example.txt</span> can be found in the same directory as f4.py. The data comes from a RAD sequencing data set of Sarotherodon cichlid fishes, published by Martin et al. (2015) on the Dryad digital repository, [here](http://datadryad.org/resource/doi:10.5061/dryad.b28p1 "Nesta is a superb CMS"). As you'll see by running this example file, there is good support for introgression in this data set, despite small samples sizes (betwen 1 and 4 individuals per population) and large amounts of missing data for some of the individuals.
+The example file <span style="font-family:Courier;">example.txt</span> can be found in the same directory as f4.py. The data comes from a RAD sequencing data set of Sarotherodon cichlid fishes, published by Martin et al. (2015), on the Dryad digital repository ([here](http://datadryad.org/resource/doi:10.5061/dryad.b28p1 )). As you'll see by running this example file, there is good support for introgression in this data set, despite small samples sizes (betwen 1 and 4 individuals per population) and large amounts of missing data for some of the individuals.
 
 #### Running F4
 To run F4, simply type
