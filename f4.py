@@ -618,19 +618,37 @@ if number_of_simulations != -1:
     outfile.write(" (+/-")
     outfile.write("{0:.5f}".format(numpy.std(simulated_f4s)))
     outfile.write(")\n")
-    number_of_simulations_with_f4_smaller_than_observed = 0
+    number_of_simulations_with_f4_more_extreme_than_observed = 0
     for simulated_f4 in simulated_f4s:
-        if simulated_f4 < observed_f4:
-            number_of_simulations_with_f4_smaller_than_observed += 1
-    outfile.write("  Proportion of simulated f4 values smaller than the observed: ")
-    outfile.write("{0:.4f}".format(number_of_simulations_with_f4_smaller_than_observed/number_of_simulations))
+        if observed_f4 < 0 and simulated_f4 < observed_f4:
+            number_of_simulations_with_f4_more_extreme_than_observed += 1
+        elif observed_f4 > 0 and simulated_f4 > observed_f4:
+            number_of_simulations_with_f4_more_extreme_than_observed += 1
+        elif observed_f4 == 0 and simulated_f4 != observed_f4:
+            number_of_simulations_with_f4_more_extreme_than_observed += 1
+    if observed_f4 < 0:
+        outfile.write("  Proportion of simulated f4 values smaller than the observed: ")
+    elif observed_f4 > 0:
+        outfile.write("  Proportion of simulated f4 values larger than the observed: ")
+    elif observed_f4 == 0:
+        outfile.write("  Proportion of simulated f4 values different from the observed: ")
+    outfile.write("{0:.4f}".format(number_of_simulations_with_f4_more_extreme_than_observed/number_of_simulations))
     outfile.write("\n")
     if jackknife_k != -1:
-        number_of_simulations_with_jackknife_f4_z_score_smaller_than_observed = 0
+        number_of_simulations_with_jackknife_f4_z_score_more_extreme_than_observed = 0
         for simulated_jackknife_f4_z_zcore in simulated_jackknife_f4_z_zcores:
-            if simulated_jackknife_f4_z_zcore < observed_jackknife_f4_z_zcore:
-                number_of_simulations_with_jackknife_f4_z_score_smaller_than_observed += 1
-        outfile.write("  Proportion of simulated jackknife blocks f4 z-values smaller than the observed: ")
-        outfile.write("{0:.4f}".format(number_of_simulations_with_jackknife_f4_z_score_smaller_than_observed/number_of_simulations))
+            if observed_jackknife_f4_z_zcore < 0 and simulated_jackknife_f4_z_zcore < observed_jackknife_f4_z_zcore:
+                number_of_simulations_with_jackknife_f4_z_score_more_extreme_than_observed += 1
+            elif observed_jackknife_f4_z_zcore > 0 and simulated_jackknife_f4_z_zcore > observed_jackknife_f4_z_zcore:
+                number_of_simulations_with_jackknife_f4_z_score_more_extreme_than_observed += 1
+            elif observed_jackknife_f4_z_zcore == 0 and simulated_jackknife_f4_z_zcore != observed_jackknife_f4_z_zcore:
+                number_of_simulations_with_jackknife_f4_z_score_more_extreme_than_observed += 1
+        if observed_jackknife_f4_z_zcore < 0:
+            outfile.write("  Proportion of simulated jackknife blocks f4 z-values smaller than the observed: ")
+        elif observed_jackknife_f4_z_zcore > 0:
+            outfile.write("  Proportion of simulated jackknife blocks f4 z-values larger than the observed: ")
+        elif observed_jackknife_f4_z_zcore == 0:
+            outfile.write("  Proportion of simulated jackknife blocks f4 z-values different from the observed: ")
+        outfile.write("{0:.4f}".format(number_of_simulations_with_jackknife_f4_z_score_more_extreme_than_observed/number_of_simulations))
         outfile.write("\n")
     outfile.write("\n")
