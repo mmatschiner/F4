@@ -29,7 +29,7 @@ pop1 pop2 pop3 pop4
 
 #### Example file
 
-The example file <span style="font-family:Courier;">example.txt</span> can be found in the same directory as f4.py. The data comes from a RAD sequencing data set of Sarotherodon cichlid fishes, published by Martin et al. (2015), on the Dryad digital repository ([here](http://datadryad.org/resource/doi:10.5061/dryad.b28p1 )). As you'll see by running this example file, there is good support for introgression in this data set, despite small samples sizes (betwen 1 and 4 individuals per population) and large amounts of missing data for some of the individuals.
+The example file <span style="font-family:Courier;">example.txt</span> can be found in the same directory as f4.py. The data come from a RAD sequencing data set of Sarotherodon cichlid fishes, published by Martin et al. (2015), on the Dryad digital repository ([here](http://datadryad.org/resource/doi:10.5061/dryad.b28p1 ) - file Sarotherodon-pstacks-map3-mind95-geno5.ped converted to treemix format). As you'll see by running this example file, there is good support for introgression in this data set, despite small samples sizes (betwen 1 and 4 individuals per population) and large amounts of missing data for some of the individuals.
 
 #### Running F4
 To run F4, simply type
