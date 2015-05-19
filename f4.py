@@ -105,8 +105,11 @@ body_lines = inlines[1:]
 # Remove empty lines and SNPs with completely missing data in one population, but count them before.
 valid_body_lines = []
 number_of_snps = 0
+linkage_break_points = []
 for body_line in body_lines:
-    if body_line.strip() != "":
+    if body_line.strip() == "":
+        linkage_break_points.append(len(valid_body_lines))
+    else:
         number_of_snps += 1
         if "0,0" not in body_line:
             valid_body_lines.append(body_line)
@@ -117,7 +120,9 @@ if len(pops) != 4:
     sys.exit(1)
 outfile.write("  Assumed population topology: (" +  pops[0] + "," + pops[1] + "),(" + pops[2] + "," + pops[3] + ")\n")
 
-f4s = []
+# XXX Todo. Implement a way to account for linkage disequilibrium.
+
+observed_f4s = []
 number_of_valid_snps = 0
 number_of_alleles_per_snp_a = []
 number_of_alleles_per_snp_b = []
@@ -162,7 +167,7 @@ for x in range(len(body_lines)):
         if d > 0 and d < 1:
             number_of_populations_with_more_than_one_allele_for_this_snp += 1
             variable_in_c_or_d = True
-        f4s.append((a-b)*(c-d))
+        observed_f4s.append((a-b)*(c-d))
         number_of_valid_snps += 1
         if number_of_populations_with_more_than_one_allele_for_this_snp > 1:
             number_of_snps_variable_in_more_than_one_population += 1
@@ -212,7 +217,7 @@ proportion_of_snps_variable_in_more_than_one_population = number_of_snps_variabl
 outfile.write("  Proportion of SNPs variable in more than one population: " + "{0:.2f}".format(proportion_of_snps_variable_in_more_than_one_population) + "\n")
 proportion_of_snps_variable_on_both_sides_of_the_root = number_of_snps_variable_on_both_sides_of_the_root/number_of_valid_snps
 outfile.write("  Proportion of SNPs variable on both sides of the root: " + "{0:.2f}".format(proportion_of_snps_variable_on_both_sides_of_the_root) + "\n")
-observed_f4 = numpy.mean(f4s)
+observed_f4 = numpy.mean(observed_f4s)
 outfile.write("  Observed f4: " + "{0:.5f}".format(observed_f4) + "\n")
 outfile.write("\n")
 
@@ -632,7 +637,8 @@ if number_of_simulations != -1:
         outfile.write("  Proportion of simulated f4 values larger than the observed: ")
     elif observed_f4 == 0:
         outfile.write("  Proportion of simulated f4 values different from the observed: ")
-    outfile.write("{0:.4f}".format(number_of_simulations_with_f4_more_extreme_than_observed/number_of_simulations))
+    proportion_of_simulations_with_f4_more_extreme_than_observed = number_of_simulations_with_f4_more_extreme_than_observed/number_of_simulations
+    outfile.write("{0:.4f}".format(proportion_of_simulations_with_f4_more_extreme_than_observed))
     outfile.write("\n")
     if jackknife_k != -1:
         number_of_simulations_with_jackknife_f4_z_score_more_extreme_than_observed = 0
@@ -652,3 +658,90 @@ if number_of_simulations != -1:
         outfile.write("{0:.4f}".format(number_of_simulations_with_jackknife_f4_z_score_more_extreme_than_observed/number_of_simulations))
         outfile.write("\n")
     outfile.write("\n")
+
+outfile.write("Interpretation\n")
+if observed_f4 == 0:
+    outfile.write("  The observed f4 value is exactly zero, there is no sign of introgression.\n")
+else:
+    if number_of_simulations == -1:
+        outfile.write("  The observed f4 value differs from zero, but whether the observed difference\n")
+        outfile.write("  could result from incomplete lineage sorting alone should be tested with \n")
+        outfile.write("  simulations (option -s).\n")
+    else:
+        if proportion_of_simulations_with_f4_more_extreme_than_observed < 0.01:
+            outfile.write("  The observed f4 value differs from zero, and there is a very low\n")
+            outfile.write("  probability that the observed difference can result from incomplete\n")
+            outfile.write("  lineage sorting alone.\n")
+        elif proportion_of_simulations_with_f4_more_extreme_than_observed < 0.05:
+            outfile.write("  The observed f4 value differs from zero, and there is a low\n")
+            outfile.write("  probability that the observed difference can result from incomplete\n")
+            outfile.write("  lineage sorting alone.\n")
+        else:
+            outfile.write("  The observed f4 value differs from zero, but the observed difference\n")
+            outfile.write("  could result from incomplete lineage sorting alone.\n")
+
+    # Check which and how many SNPs are driving this pattern.
+    outlier_valid_body_lines = []
+    reduced_f4 = observed_f4
+    reduced_f4s = observed_f4s
+    if observed_f4 < 0:
+        while reduced_f4 < 0:
+            # Identify the most negative SNP.
+            min_f4 = 0
+            min_f4_index = 0
+            for x in range(len(reduced_f4s)):
+                if reduced_f4s[x] < min_f4:
+                    min_f4 = reduced_f4s[x]
+                    min_f4_index = x
+            # Replace it with 0.
+            reduced_f4s[min_f4_index] = 0
+            reduced_f4 = numpy.mean(reduced_f4s)
+            outlier_valid_body_lines.append(valid_body_lines[min_f4_index])
+        if len(outlier_valid_body_lines) == 1:
+            outfile.write("  The negative f4 value is primarily driven by a single SNP.\n")
+            outfile.write("  Removing this SNP from the data set brings the f4 value back to zero.\n")
+            outfile.write("  More data will be needed to corroborate support for introgression.\n")
+            outfile.write("  The input file line corresponding to this SNP is listed below.\n")
+        elif len(outlier_valid_body_lines) > 1:
+            outfile.write("  The negative f4 value is primarily driven by " + str(len(outlier_valid_body_lines)) + " SNPs.\n")
+            outfile.write("  Removing these SNPs from the data set brings the f4 value back to zero.\n")
+            outfile.write("  It might be worth checking whether these are more often in or near genes than \n")
+            outfile.write("  expected. If so, this would suggest selection as an alternative explanation \n")
+            outfile.write("  for the negative f4 value.\n")
+            outfile.write("  The input file lines corresponding to these SNPs are listed below.\n")
+        else:
+            print("ERROR: Unexpected result during search for outlier f4 values")
+    else:
+        while reduced_f4 > 0:
+            # Identify the most positive SNP.
+            max_f4 = 0
+            max_f4_index = 0
+            for x in range(len(reduced_f4s)):
+                if reduced_f4s[x] > max_f4:
+                    max_f4 = reduced_f4s[x]
+                    max_f4_index = x
+            # Replace it with 0.
+            reduced_f4s[max_f4_index] = 0
+            reduced_f4 = numpy.mean(reduced_f4s)
+            outlier_valid_body_lines.append(valid_body_lines[max_f4_index])
+        if len(outlier_valid_body_lines) == 1:
+            outfile.write("  The positive f4 value is primarily driven by a single SNP.\n")
+            outfile.write("  Removing this SNP from the data set brings the f4 value back to zero.\n")
+            outfile.write("  More data will be needed to corroborate support for introgression.\n")
+            outfile.write("  The input file line corresponding to this SNP is listed below.\n")
+        elif len(outlier_valid_body_lines) > 1:
+            outfile.write("  The positive f4 value is primarily driven by " + str(len(outlier_valid_body_lines)) + " SNPs.\n")
+            outfile.write("  Removing these SNPs from the data set brings the f4 value back to zero.\n")
+            outfile.write("  It might be worth checking whether these are more often in or near genes than \n")
+            outfile.write("  expected. If so, this would suggest selection as an alternative explanation \n")
+            outfile.write("  for the positive f4 value.\n")
+            outfile.write("  The input file lines corresponding to these SNPs are listed below.\n")
+        else:
+            print("ERROR: Unexpected result during search for outlier f4 values")
+
+    outfile.write("\n")
+    outfile.write("Outlier SNPs responsible for non-zero f4 value:\n")
+    for outlier_valid_body_line in outlier_valid_body_lines:
+        outfile.write("  " + outlier_valid_body_line + "\n")
+
+outfile.write("\n")
