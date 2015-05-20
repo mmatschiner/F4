@@ -101,12 +101,13 @@ else:
 instring = infile.read()
 inlines = instring.split('\n')
 header_line = inlines[0]
-body_lines = inlines[1:]
+original_body_lines = inlines[1:]
+
 # Remove empty lines and SNPs with completely missing data in one population, but count them before.
 valid_body_lines = []
 number_of_snps = 0
 linkage_break_points = []
-for body_line in body_lines:
+for body_line in original_body_lines:
     if body_line.strip() == "":
         linkage_break_points.append(len(valid_body_lines))
     else:
@@ -682,6 +683,7 @@ else:
 
     # Check which and how many SNPs are driving this pattern.
     outlier_valid_body_lines = []
+    outlier_f4s = []
     reduced_f4 = observed_f4
     reduced_f4s = observed_f4s
     if observed_f4 < 0:
@@ -697,21 +699,8 @@ else:
             reduced_f4s[min_f4_index] = 0
             reduced_f4 = numpy.mean(reduced_f4s)
             outlier_valid_body_lines.append(valid_body_lines[min_f4_index])
-        if len(outlier_valid_body_lines) == 1:
-            outfile.write("  The negative f4 value is primarily driven by a single SNP.\n")
-            outfile.write("  Removing this SNP from the data set brings the f4 value back to zero.\n")
-            outfile.write("  More data will be needed to corroborate support for introgression.\n")
-            outfile.write("  The input file line corresponding to this SNP is listed below.\n")
-        elif len(outlier_valid_body_lines) > 1:
-            outfile.write("  The negative f4 value is primarily driven by " + str(len(outlier_valid_body_lines)) + " SNPs.\n")
-            outfile.write("  Removing these SNPs from the data set brings the f4 value back to zero.\n")
-            outfile.write("  It might be worth checking whether these are more often in or near genes than \n")
-            outfile.write("  expected. If so, this would suggest selection as an alternative explanation \n")
-            outfile.write("  for the negative f4 value.\n")
-            outfile.write("  The input file lines corresponding to these SNPs are listed below.\n")
-        else:
-            print("ERROR: Unexpected result during search for outlier f4 values")
-    else:
+            outlier_f4s.append(min_f4)
+    if observed_f4 > 0:
         while reduced_f4 > 0:
             # Identify the most positive SNP.
             max_f4 = 0
@@ -724,24 +713,102 @@ else:
             reduced_f4s[max_f4_index] = 0
             reduced_f4 = numpy.mean(reduced_f4s)
             outlier_valid_body_lines.append(valid_body_lines[max_f4_index])
+            outlier_f4s.append(min_f4)
+    printed_oulier_snps_body_line_indices = []
+    index_string_length = max(len("Position"),len(str(len(original_body_lines))))
+    outlier_lines = []
+    for x in range(len(outlier_valid_body_lines)):
+        oulier_snps_body_line_indices = []
+        for y in range(len(original_body_lines)):
+            if original_body_lines[y] == outlier_valid_body_lines[x]:
+                oulier_snps_body_line_indices.append(y)
+        # Select the first line index that has not been printed yet.
+        selected_outlier_snps_body_line_index = 0
+        for z in range(len(oulier_snps_body_line_indices)):
+            if oulier_snps_body_line_indices[z] not in printed_oulier_snps_body_line_indices:
+                selected_outlier_snps_body_line_index = oulier_snps_body_line_indices[z]
+                printed_oulier_snps_body_line_indices.append(selected_outlier_snps_body_line_index)
+                break
+        selected_outlier_snps_body_line_index_string = str(selected_outlier_snps_body_line_index)
+        outlier_lines.append("  " + selected_outlier_snps_body_line_index_string.rjust(index_string_length) + " | " + outlier_valid_body_lines[x] + "    | " + "{0:.4f}".format(outlier_f4s[x]) + "\n")
+
+    # Check wether the indices of the outlier SNPs are more clustered than expected by chance.
+    observed_total_index_distance = 0
+    for x in range(len(printed_oulier_snps_body_line_indices)):
+        for y in range(len(printed_oulier_snps_body_line_indices)):
+            if x != y:
+                observed_total_index_distance += (1/(printed_oulier_snps_body_line_indices[x]-printed_oulier_snps_body_line_indices[y]))**2
+    shuffled_total_index_distances = []
+    number_of_shuffle_repetitions = 1000
+    for x in range(number_of_shuffle_repetitions):
+        shuffled_printed_oulier_snps_body_line_indices = random.sample(range(len(original_body_lines)),len(printed_oulier_snps_body_line_indices))
+        shuffled_total_index_distance = 0
+        for x in range(len(shuffled_printed_oulier_snps_body_line_indices)):
+            for y in range(len(shuffled_printed_oulier_snps_body_line_indices)):
+                if x != y:
+                    shuffled_total_index_distance += (1/(shuffled_printed_oulier_snps_body_line_indices[x]-shuffled_printed_oulier_snps_body_line_indices[y]))**2
+        shuffled_total_index_distances.append(shuffled_total_index_distance)
+    number_of_reshuffled_indices_that_are_more_clustered_than_the_observed = 0
+    for shuffled_total_index_distance in shuffled_total_index_distances:
+        if shuffled_total_index_distance > observed_total_index_distance:
+            number_of_reshuffled_indices_that_are_more_clustered_than_the_observed += 1
+    linked = False
+    very_linked = False
+    if number_of_reshuffled_indices_that_are_more_clustered_than_the_observed < 0.05 * number_of_shuffle_repetitions:
+        linked = True
+    if number_of_reshuffled_indices_that_are_more_clustered_than_the_observed < 0.01 * number_of_shuffle_repetitions:
+        very_linked = True
+
+    if observed_f4 < 0:
+        if len(outlier_valid_body_lines) == 1:
+            outfile.write("  The negative f4 value is primarily driven by a single SNP.\n")
+            outfile.write("  Removing this SNP from the data set brings the f4 value back to zero.\n")
+            outfile.write("  More data will be needed to corroborate support for introgression.\n")
+            outfile.write("  More information for this SNP is listed below.\n")
+        elif len(outlier_valid_body_lines) > 1:
+            outfile.write("  The negative f4 value is primarily driven by " + str(len(outlier_valid_body_lines)) + " SNPs.\n")
+            outfile.write("  Removing these SNPs from the data set brings the f4 value back to zero.\n")
+            if very_linked:
+                outfile.write("  Note that the positions of these " + str(len(outlier_valid_body_lines)) + " SNPs are much more clustered than\n")
+                outfile.write("  expected by chance, indicating linkage and thus non-independence of their\n")
+                outfile.write("  f4 values.\n")
+            elif linked:
+                outfile.write("  Note that the positions of these " + str(len(outlier_valid_body_lines)) + " SNPs are more clustered than\n")
+                outfile.write("  expected by chance, indicating linkage and thus non-independence of their\n")
+                outfile.write("  f4 values.\n")
+            outfile.write("  It might be worth checking whether these are more often in or near genes \n")
+            outfile.write("  than expected. If so, this would suggest selection as an alternative \n")
+            outfile.write("  explanation for the negative f4 value.\n")
+            outfile.write("  More information for these " + str(len(outlier_valid_body_lines)) + " SNP is listed below.\n")
+        else:
+            print("ERROR: Unexpected result during search for outlier f4 values")
+    if observed_f4 > 0:
         if len(outlier_valid_body_lines) == 1:
             outfile.write("  The positive f4 value is primarily driven by a single SNP.\n")
             outfile.write("  Removing this SNP from the data set brings the f4 value back to zero.\n")
             outfile.write("  More data will be needed to corroborate support for introgression.\n")
-            outfile.write("  The input file line corresponding to this SNP is listed below.\n")
+            outfile.write("  More information for this SNP is listed below.\n")
         elif len(outlier_valid_body_lines) > 1:
             outfile.write("  The positive f4 value is primarily driven by " + str(len(outlier_valid_body_lines)) + " SNPs.\n")
             outfile.write("  Removing these SNPs from the data set brings the f4 value back to zero.\n")
-            outfile.write("  It might be worth checking whether these are more often in or near genes than \n")
-            outfile.write("  expected. If so, this would suggest selection as an alternative explanation \n")
-            outfile.write("  for the positive f4 value.\n")
-            outfile.write("  The input file lines corresponding to these SNPs are listed below.\n")
+            if very_linked:
+                outfile.write("  Note that the positions of these " + str(len(outlier_valid_body_lines)) + " SNPs are much more clustered than\n")
+                outfile.write("  expected by chance, indicating linkage and thus non-independence of their\n")
+                outfile.write("  f4 values.\n")
+            elif linked:
+                outfile.write("  Note that the positions of these " + str(len(outlier_valid_body_lines)) + " SNPs are more clustered than\n")
+                outfile.write("  expected by chance, indicating linkage and thus non-independence of their\n")
+                outfile.write("  f4 values.\n")
+            outfile.write("  It might be worth checking whether these are more often in or near genes \n")
+            outfile.write("  than expected. If so, this would suggest selection as an alternative \n")
+            outfile.write("  explanation for the positive f4 value.\n")
+            outfile.write("  More information for these " + str(len(outlier_valid_body_lines)) + " SNP is listed below.\n")
         else:
             print("ERROR: Unexpected result during search for outlier f4 values")
-
     outfile.write("\n")
-    outfile.write("Outlier SNPs responsible for non-zero f4 value:\n")
-    for outlier_valid_body_line in outlier_valid_body_lines:
-        outfile.write("  " + outlier_valid_body_line + "\n")
+    outfile.write("Outliers\n")
+    outfile.write("  " + "Position".rjust(index_string_length) + " | " + "Allele frequencies" + " | f4\n")
+    for x in range(len(outlier_lines)):
+        outfile.write(outlier_lines[x])
 
 outfile.write("\n")
