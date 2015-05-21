@@ -114,14 +114,19 @@ for body_line in original_body_lines:
         number_of_snps += 1
         if "0,0" not in body_line:
             valid_body_lines.append(body_line)
+if len(valid_body_lines) in linkage_break_points:
+    linkage_break_points.remove(len(valid_body_lines))
+linkage_break_points = list(set(linkage_break_points))
+linkage_block_sizes = []
+for linkage_break_point in linkage_break_points:
+    linkage_block_sizes.append(linkage_break_point-sum(linkage_block_sizes))
+linkage_block_sizes.append(len(valid_body_lines)-sum(linkage_block_sizes))
 body_lines = valid_body_lines
 pops = header_line.strip().split()
 if len(pops) != 4:
     print("ERROR: The input file should contain data for exactly four populations. The header line has only " + str(len(pops)) + " columns!")
     sys.exit(1)
 outfile.write("  Assumed population topology: (" +  pops[0] + "," + pops[1] + "),(" + pops[2] + "," + pops[3] + ")\n")
-
-# XXX Todo. Implement a way to account for linkage disequilibrium.
 
 observed_f4s = []
 number_of_valid_snps = 0
@@ -192,6 +197,12 @@ outfile.write(str(max_number_of_alleles_d) + "\n")
 outfile.write("  Number of SNPs: " + str(number_of_snps) + "\n")
 outfile.write("  Number of SNPs excluded due to missing data: " + str(number_of_snps-number_of_valid_snps) + "\n")
 outfile.write("  Number of SNPs used: " + str(number_of_valid_snps) + "\n")
+if len(linkage_block_sizes) > 1:
+    outfile.write("  Number of linkage blocks detected (separated by empty lines): " + str(len(linkage_block_sizes)) + "\n")
+    outfile.write("  Number of SNPs used per linkage block: ")
+    for x in range(len(linkage_block_sizes)-1):
+        outfile.write(str(linkage_block_sizes[x]) + ", ")
+    outfile.write(str(linkage_block_sizes[-1]) + "\n")
 proportion_missing_per_snp_a = []
 for n in number_of_alleles_per_snp_a:
     proportion_missing_per_snp_a.append(1-(n/max_number_of_alleles_a))
@@ -242,7 +253,7 @@ if jackknife_k != -1:
         if len(item) == jackknife_k:
             body_lines_per_valid_block.append(item)
     if len(body_lines_per_valid_block) < 2:
-        print("ERROR: he specified jack-knifing block size (k) allows only a single block of SNPs!")
+        print("ERROR: The specified jack-knifing block size (k) allows only a single block of SNPs!")
         sys.exit(1)
     f4_per_block = []
     for block_body_lines in body_lines_per_valid_block:
@@ -295,12 +306,15 @@ if number_of_simulations != -1:
     if number_of_simulations < 1:
         print("ERROR: The specified number of simulations (option '-s') is smaller than 1!")
         sys.exit(1)
+    FNULL = open(os.devnull, 'w')
     converged = False
     simulated_f4s = []
     if jackknife_k != -1:
         simulated_jackknife_f4_z_zcores = []
     simulation_proportion_of_snps_variable_in_more_than_one_population = []
     simulation_proportion_of_snps_variable_on_both_sides_of_the_root = []
+    simulation_effective_population_sizes = []
+    simulation_times_of_second_divergence = []
     effective_population_size = 100
     time_of_second_divergence_x = 100
     effective_population_size_has_been_too_large = False
@@ -313,169 +327,335 @@ if number_of_simulations != -1:
         else:
             outfile.write("\rRunning simulations (" + str(len(simulated_f4s)) + "/" + str(number_of_simulations) + ") ...                   ")
         time_of_second_divergence = 1000*((time_of_second_divergence_x/100)/(1+(time_of_second_divergence_x/100)))
-        # Write a temporary file for fastsimcoal2.
-        fsc_input_string = ""
-        fsc_input_string += "//Number of population samples (demes)\n"
-        fsc_input_string += "4\n"
-        fsc_input_string += "//Population effective sizes (number of genes)\n"
-        fsc_input_string += str(effective_population_size) + "\n"
-        fsc_input_string += str(effective_population_size) + "\n"
-        fsc_input_string += str(effective_population_size) + "\n"
-        fsc_input_string += str(effective_population_size) + "\n"
-        fsc_input_string += "//Sample sizes\n"
-        fsc_input_string += str(max_number_of_alleles_a) + "\n"
-        fsc_input_string += str(max_number_of_alleles_b) + "\n"
-        fsc_input_string += str(max_number_of_alleles_c) + "\n"
-        fsc_input_string += str(max_number_of_alleles_d) + "\n"
-        fsc_input_string += "//Growth rates  : negative growth implies population expansion\n"
-        fsc_input_string += "0\n"
-        fsc_input_string += "0\n"
-        fsc_input_string += "0\n"
-        fsc_input_string += "0\n"
-        fsc_input_string += "//Number of migration matrices : 0 implies no migration between demes\n"
-        fsc_input_string += "0 migration matrices\n"
-        fsc_input_string += "//historical event: time, source, sink, migrants, new size, new growth rate, migr. matrix\n"
-        fsc_input_string += "3 historical events\n"
-        fsc_input_string += str(int(time_of_second_divergence)) + " 0 1 1 1 0 0\n"
-        fsc_input_string += str(int(time_of_second_divergence)) + " 2 3 1 1 0 0\n"
-        fsc_input_string += "1000 1 3 1 1 0 0\n"
-        # fsc_input_string += "2000 3 3 1 " + "{0:.4f}".format(4/effective_population_size) + " 0 0\n"
-        fsc_input_string += "//Number of independent loci [chromosome]\n"
-        fsc_input_string += str(int(number_of_valid_snps/proportion_missing_max)) + " 0\n"
-        fsc_input_string += "//Per chromosome: Number of linkage blocks\n"
-        fsc_input_string += "1\n"
-        fsc_input_string += "//per Block: data type, num loci, rec. rate and mut rate + optional parameters\n"
-        fsc_input_string += "SNP 1 0 0\n"
-        tmp_in = tempfile.NamedTemporaryFile(delete=False)
-        tmp_in.write(fsc_input_string.encode('utf-8'))
-        tmp_in.close()
-        FNULL = open(os.devnull, 'w')
-        call_list = ["fsc252", "-i", tmp_in.name, "-n", "1"]
-        call(call_list, stdout=FNULL, stderr=FNULL)
 
-        # Read the fastsimcoal2 output file.
-        if "/" in tmp_in.name:
-            tmp_file_name = tmp_in.name.split("/")[-1]
-        else:
-            tmp_file_name = tmp_in.name
-        if os.path.isfile(tmp_file_name + "/" + tmp_file_name + "_1_1.arp"):
-            tmp_out = open(tmp_file_name + "/" + tmp_file_name + "_1_1.arp")
-            fsc_output_string = tmp_out.read()
-            tmp_out.close()
-            os.remove(tmp_file_name + "/" + tmp_file_name + "_1_1.arp")
-            if os.path.isfile(tmp_file_name + "/" + tmp_file_name + "_1.arb"):
-                os.remove(tmp_file_name + "/" + tmp_file_name + "_1.arb")
-            if os.path.isfile(tmp_file_name + "/" + tmp_file_name + "_1.simparam"):
-                os.remove(tmp_file_name + "/" + tmp_file_name + "_1.simparam")
-            os.rmdir(tmp_file_name)
-            if os.path.isfile("seed.txt"):
-                os.remove("seed.txt")
-        else:
-            print("ERROR: Fastsimcoal2 output file " + tmp_file_name + "/" + tmp_file_name + "_1_1.arp" + " can not be found!")
-            sys.exit(1)
+        # If just a single block of input lines was found, assume that all SNPs are unlinked. If however,
+        # multiple blocks separated by empty lines were found, assume these to represent linkage blocks.
+        if len(linkage_block_sizes) == 1:
+            # Write a temporary file for fastsimcoal2.
+            fsc_input_string = ""
+            fsc_input_string += "//Number of population samples (demes)\n"
+            fsc_input_string += "4\n"
+            fsc_input_string += "//Population effective sizes (number of genes)\n"
+            fsc_input_string += str(effective_population_size) + "\n"
+            fsc_input_string += str(effective_population_size) + "\n"
+            fsc_input_string += str(effective_population_size) + "\n"
+            fsc_input_string += str(effective_population_size) + "\n"
+            fsc_input_string += "//Sample sizes\n"
+            fsc_input_string += str(max_number_of_alleles_a) + "\n"
+            fsc_input_string += str(max_number_of_alleles_b) + "\n"
+            fsc_input_string += str(max_number_of_alleles_c) + "\n"
+            fsc_input_string += str(max_number_of_alleles_d) + "\n"
+            fsc_input_string += "//Growth rates  : negative growth implies population expansion\n"
+            fsc_input_string += "0\n"
+            fsc_input_string += "0\n"
+            fsc_input_string += "0\n"
+            fsc_input_string += "0\n"
+            fsc_input_string += "//Number of migration matrices : 0 implies no migration between demes\n"
+            fsc_input_string += "0 migration matrices\n"
+            fsc_input_string += "//historical event: time, source, sink, migrants, new size, new growth rate, migr. matrix\n"
+            fsc_input_string += "3 historical events\n"
+            fsc_input_string += str(int(time_of_second_divergence)) + " 0 1 1 1 0 0\n"
+            fsc_input_string += str(int(time_of_second_divergence)) + " 2 3 1 1 0 0\n"
+            fsc_input_string += "1000 1 3 1 1 0 0\n"
+            fsc_input_string += "//Number of independent loci [chromosome]\n"
+            fsc_input_string += str(int(number_of_valid_snps/(1-proportion_missing_max))+1) + " 0\n"
+            fsc_input_string += "//Per chromosome: Number of linkage blocks\n"
+            fsc_input_string += "1\n"
+            fsc_input_string += "//per Block: data type, num loci, rec. rate and mut rate + optional parameters\n"
+            fsc_input_string += "SNP 1 0 0\n"
+            tmp_in = tempfile.NamedTemporaryFile(delete=False)
+            tmp_in.write(fsc_input_string.encode('utf-8'))
+            tmp_in.close()
+            call_list = ["fsc252", "-i", tmp_in.name, "-n", "1"]
+            call(call_list, stdout=FNULL, stderr=FNULL)
 
-        # Parse the fastsimcoal2 output file and create treemix format lines (without actually writing them to file).
-        body_lines = []
-        fsc_output_lines = fsc_output_string.split("\n")
-        in_record = False
-        in_samples = False
-        simulated_ids = []
-        simulated_snps = []
-        for line in fsc_output_lines:
-            if line.strip("") != "":
-                if line[0] != "#":
-                    if "{" in line:
-                        in_record = True
-                    elif "}" in line:
-                        in_record = False
-                    elif "[[Samples]]" in line:
-                        in_samples = True
-                    elif "[[Structure]]" in line:
-                        in_samples = False
-                    elif in_record and in_samples:
-                        line_ary = line.split()
-                        simulated_ids.append(line_ary[0])
-                        simulated_snps.append(line_ary[2])
-        continue_searching = True
-        enough_snps_found = False
-        pos = 0
-        while continue_searching:
-            if len(body_lines) == number_of_valid_snps:
-                enough_snps_found = True
-                continue_searching = False
-            elif pos == len(simulated_snps[0]):
-                continue_searching = False
+            # Read the fastsimcoal2 output file.
+            if "/" in tmp_in.name:
+                tmp_file_name = tmp_in.name.split("/")[-1]
             else:
-                pop_a_alleles = []
-                pop_b_alleles = []
-                pop_c_alleles = []
-                pop_d_alleles = []
-                for x in range(len(simulated_ids)):
-                    if "1_" in simulated_ids[x]:
-                        pop_a_alleles.append(simulated_snps[x][pos])
-                    elif "2_" in simulated_ids[x]:
-                        pop_b_alleles.append(simulated_snps[x][pos])
-                    elif "3_" in simulated_ids[x]:
-                        pop_c_alleles.append(simulated_snps[x][pos])
-                    elif "4_" in simulated_ids[x]:
-                        pop_d_alleles.append(simulated_snps[x][pos])
-                    else:
-                        print("ERROR: Id of simulated individual " + simulated_ids[x] + " could not be assigned to a population!")
+                tmp_file_name = tmp_in.name
+            if os.path.isfile(tmp_file_name + "/" + tmp_file_name + "_1_1.arp"):
+                tmp_out = open(tmp_file_name + "/" + tmp_file_name + "_1_1.arp")
+                fsc_output_string = tmp_out.read()
+                tmp_out.close()
+                os.remove(tmp_file_name + "/" + tmp_file_name + "_1_1.arp")
+                if os.path.isfile(tmp_file_name + "/" + tmp_file_name + "_1.arb"):
+                    os.remove(tmp_file_name + "/" + tmp_file_name + "_1.arb")
+                if os.path.isfile(tmp_file_name + "/" + tmp_file_name + "_1.simparam"):
+                    os.remove(tmp_file_name + "/" + tmp_file_name + "_1.simparam")
+                os.rmdir(tmp_file_name)
+                if os.path.isfile("seed.txt"):
+                    os.remove("seed.txt")
+            else:
+                print("ERROR: Fastsimcoal2 output file " + tmp_file_name + "/" + tmp_file_name + "_1_1.arp" + " can not be found!")
+                sys.exit(1)
+
+            # Parse the fastsimcoal2 output file and create treemix format lines (without actually writing them to file).
+            body_lines = []
+            fsc_output_lines = fsc_output_string.split("\n")
+            in_record = False
+            in_samples = False
+            simulated_ids = []
+            simulated_snps = []
+            for line in fsc_output_lines:
+                if line.strip("") != "":
+                    if line[0] != "#":
+                        if "{" in line:
+                            in_record = True
+                        elif "}" in line:
+                            in_record = False
+                        elif "[[Samples]]" in line:
+                            in_samples = True
+                        elif "[[Structure]]" in line:
+                            in_samples = False
+                        elif in_record and in_samples:
+                            line_ary = line.split()
+                            simulated_ids.append(line_ary[0])
+                            simulated_snps.append(line_ary[2])
+            continue_searching = True
+            not_enough_snps_found = False
+            pos = 0
+            while continue_searching:
+                if len(body_lines) == number_of_valid_snps:
+                    continue_searching = False
+                elif pos == len(simulated_snps[0]):
+                    continue_searching = False
+                    not_enough_snps_found = True
+                else:
+                    pop_a_alleles = []
+                    pop_b_alleles = []
+                    pop_c_alleles = []
+                    pop_d_alleles = []
+                    for x in range(len(simulated_ids)):
+                        if "1_" in simulated_ids[x]:
+                            pop_a_alleles.append(simulated_snps[x][pos])
+                        elif "2_" in simulated_ids[x]:
+                            pop_b_alleles.append(simulated_snps[x][pos])
+                        elif "3_" in simulated_ids[x]:
+                            pop_c_alleles.append(simulated_snps[x][pos])
+                        elif "4_" in simulated_ids[x]:
+                            pop_d_alleles.append(simulated_snps[x][pos])
+                        else:
+                            print("ERROR: Id of simulated individual " + simulated_ids[x] + " could not be assigned to a population!")
+                            sys.exit(1)
+                    # Mask alleles according to the missing data in the observed SNPs.
+                    number_of_alleles_to_mask_a = len(pop_a_alleles) - number_of_alleles_per_snp_a[len(body_lines)]
+                    number_of_alleles_to_mask_b = len(pop_b_alleles) - number_of_alleles_per_snp_b[len(body_lines)]
+                    number_of_alleles_to_mask_c = len(pop_c_alleles) - number_of_alleles_per_snp_c[len(body_lines)]
+                    number_of_alleles_to_mask_d = len(pop_d_alleles) - number_of_alleles_per_snp_d[len(body_lines)]
+                    if min(number_of_alleles_to_mask_a,number_of_alleles_to_mask_b,number_of_alleles_to_mask_c,number_of_alleles_to_mask_d) < 0:
+                        print("ERROR: Something went wrong with masking of simulated data!")
                         sys.exit(1)
-                # Mask alleles according to the missing data in the observed SNPs.
-                number_of_alleles_to_mask_a = len(pop_a_alleles) - number_of_alleles_per_snp_a[len(body_lines)]
-                number_of_alleles_to_mask_b = len(pop_b_alleles) - number_of_alleles_per_snp_b[len(body_lines)]
-                number_of_alleles_to_mask_c = len(pop_c_alleles) - number_of_alleles_per_snp_c[len(body_lines)]
-                number_of_alleles_to_mask_d = len(pop_d_alleles) - number_of_alleles_per_snp_d[len(body_lines)]
-                if min(number_of_alleles_to_mask_a,number_of_alleles_to_mask_b,number_of_alleles_to_mask_c,number_of_alleles_to_mask_d) < 0:
-                    print("ERROR: Something went wrong with masking of simulated data!")
+                    indices_of_alleles_to_mask_a = random.sample(range(len(pop_a_alleles)),number_of_alleles_to_mask_a)
+                    for x in indices_of_alleles_to_mask_a:
+                        pop_a_alleles[x] = "N"
+                    indices_of_alleles_to_mask_b = random.sample(range(len(pop_b_alleles)),number_of_alleles_to_mask_b)
+                    for x in indices_of_alleles_to_mask_b:
+                        pop_b_alleles[x] = "N"
+                    indices_of_alleles_to_mask_c = random.sample(range(len(pop_c_alleles)),number_of_alleles_to_mask_c)
+                    for x in indices_of_alleles_to_mask_c:
+                        pop_c_alleles[x] = "N"
+                    indices_of_alleles_to_mask_d = random.sample(range(len(pop_d_alleles)),number_of_alleles_to_mask_d)
+                    for x in indices_of_alleles_to_mask_d:
+                        pop_d_alleles[x] = "N"
+
+                    # Make sure that this is still a bi-allelic SNP after masking.
+                    allele_1_present = False
+                    allele_2_present = False
+                    if "0" in pop_a_alleles:
+                        allele_1_present = True
+                    if "1" in pop_a_alleles:
+                        allele_2_present = True
+                    if "0" in pop_b_alleles:
+                        allele_1_present = True
+                    if "1" in pop_b_alleles:
+                        allele_2_present = True
+                    if "0" in pop_c_alleles:
+                        allele_1_present = True
+                    if "1" in pop_c_alleles:
+                        allele_2_present = True
+                    if "0" in pop_d_alleles:
+                        allele_1_present = True
+                    if "1" in pop_d_alleles:
+                        allele_2_present = True
+                    
+                    # If this is the case, count allele frequencies.
+                    if allele_1_present and allele_2_present:
+                        body_line = ""
+                        body_line += str(pop_a_alleles.count("0")) + "," + str(pop_a_alleles.count("1")) + " "
+                        body_line += str(pop_b_alleles.count("0")) + "," + str(pop_b_alleles.count("1")) + " "
+                        body_line += str(pop_c_alleles.count("0")) + "," + str(pop_c_alleles.count("1")) + " "
+                        body_line += str(pop_d_alleles.count("0")) + "," + str(pop_d_alleles.count("1"))
+                        body_lines.append(body_line)
+
+                    pos += 1
+
+        else:
+
+            body_lines = []
+            not_enough_snps_found = False
+            for linkage_block_size in linkage_block_sizes:
+                # Write a temporary file for fastsimcoal2, simulate a block of linked SNPs.
+                fsc_input_string = ""
+                fsc_input_string += "//Number of population samples (demes)\n"
+                fsc_input_string += "4\n"
+                fsc_input_string += "//Population effective sizes (number of genes)\n"
+                fsc_input_string += str(effective_population_size) + "\n"
+                fsc_input_string += str(effective_population_size) + "\n"
+                fsc_input_string += str(effective_population_size) + "\n"
+                fsc_input_string += str(effective_population_size) + "\n"
+                fsc_input_string += "//Sample sizes\n"
+                fsc_input_string += str(max_number_of_alleles_a) + "\n"
+                fsc_input_string += str(max_number_of_alleles_b) + "\n"
+                fsc_input_string += str(max_number_of_alleles_c) + "\n"
+                fsc_input_string += str(max_number_of_alleles_d) + "\n"
+                fsc_input_string += "//Growth rates  : negative growth implies population expansion\n"
+                fsc_input_string += "0\n"
+                fsc_input_string += "0\n"
+                fsc_input_string += "0\n"
+                fsc_input_string += "0\n"
+                fsc_input_string += "//Number of migration matrices : 0 implies no migration between demes\n"
+                fsc_input_string += "0 migration matrices\n"
+                fsc_input_string += "//historical event: time, source, sink, migrants, new size, new growth rate, migr. matrix\n"
+                fsc_input_string += "3 historical events\n"
+                fsc_input_string += str(int(time_of_second_divergence)) + " 0 1 1 1 0 0\n"
+                fsc_input_string += str(int(time_of_second_divergence)) + " 2 3 1 1 0 0\n"
+                fsc_input_string += "1000 1 3 1 1 0 0\n"
+                fsc_input_string += "//Number of independent loci [chromosome]\n"
+                fsc_input_string += "1 0\n"
+                fsc_input_string += "//Per chromosome: Number of linkage blocks\n"
+                fsc_input_string += "1\n"
+                fsc_input_string += "//per Block: data type, num loci, rec. rate and mut rate + optional parameters\n"
+                fsc_input_string += "SNP " + str(int(linkage_block_size/(1-proportion_missing_max))+1) + " 0 0\n"
+                tmp_in = tempfile.NamedTemporaryFile(delete=False)
+                tmp_in.write(fsc_input_string.encode('utf-8'))
+                tmp_in.close()
+                call_list = ["fsc252", "-i", tmp_in.name, "-n", "1"]
+                call(call_list, stdout=FNULL, stderr=FNULL)
+
+                # Read the fastsimcoal2 output file.
+                if "/" in tmp_in.name:
+                    tmp_file_name = tmp_in.name.split("/")[-1]
+                else:
+                    tmp_file_name = tmp_in.name
+                if os.path.isfile(tmp_file_name + "/" + tmp_file_name + "_1_1.arp"):
+                    tmp_out = open(tmp_file_name + "/" + tmp_file_name + "_1_1.arp")
+                    fsc_output_string = tmp_out.read()
+                    tmp_out.close()
+                    os.remove(tmp_file_name + "/" + tmp_file_name + "_1_1.arp")
+                    if os.path.isfile(tmp_file_name + "/" + tmp_file_name + "_1.arb"):
+                        os.remove(tmp_file_name + "/" + tmp_file_name + "_1.arb")
+                    if os.path.isfile(tmp_file_name + "/" + tmp_file_name + "_1.simparam"):
+                        os.remove(tmp_file_name + "/" + tmp_file_name + "_1.simparam")
+                    os.rmdir(tmp_file_name)
+                    if os.path.isfile("seed.txt"):
+                        os.remove("seed.txt")
+                else:
+                    print("ERROR: Fastsimcoal2 output file " + tmp_file_name + "/" + tmp_file_name + "_1_1.arp" + " can not be found!")
                     sys.exit(1)
-                indices_of_alleles_to_mask_a = random.sample(range(len(pop_a_alleles)),number_of_alleles_to_mask_a)
-                for x in indices_of_alleles_to_mask_a:
-                    pop_a_alleles[x] = "N"
-                indices_of_alleles_to_mask_b = random.sample(range(len(pop_b_alleles)),number_of_alleles_to_mask_b)
-                for x in indices_of_alleles_to_mask_b:
-                    pop_b_alleles[x] = "N"
-                indices_of_alleles_to_mask_c = random.sample(range(len(pop_c_alleles)),number_of_alleles_to_mask_c)
-                for x in indices_of_alleles_to_mask_c:
-                    pop_c_alleles[x] = "N"
-                indices_of_alleles_to_mask_d = random.sample(range(len(pop_d_alleles)),number_of_alleles_to_mask_d)
-                for x in indices_of_alleles_to_mask_d:
-                    pop_d_alleles[x] = "N"
 
-                # Make sure that this is still a bi-allelic SNP after masking.
-                allele_1_present = False
-                allele_2_present = False
-                if "0" in pop_a_alleles:
-                    allele_1_present = True
-                if "1" in pop_a_alleles:
-                    allele_2_present = True
-                if "0" in pop_b_alleles:
-                    allele_1_present = True
-                if "1" in pop_b_alleles:
-                    allele_2_present = True
-                if "0" in pop_c_alleles:
-                    allele_1_present = True
-                if "1" in pop_c_alleles:
-                    allele_2_present = True
-                if "0" in pop_d_alleles:
-                    allele_1_present = True
-                if "1" in pop_d_alleles:
-                    allele_2_present = True
-                
-                # If this is the case, count allele frequencies.
-                if allele_1_present and allele_2_present:
-                    body_line = ""
-                    body_line += str(pop_a_alleles.count("0")) + "," + str(pop_a_alleles.count("1")) + " "
-                    body_line += str(pop_b_alleles.count("0")) + "," + str(pop_b_alleles.count("1")) + " "
-                    body_line += str(pop_c_alleles.count("0")) + "," + str(pop_c_alleles.count("1")) + " "
-                    body_line += str(pop_d_alleles.count("0")) + "," + str(pop_d_alleles.count("1"))
-                    body_lines.append(body_line)
+                # Parse the fastsimcoal2 output file and create treemix format lines (without actually writing them to file).
+                fsc_output_lines = fsc_output_string.split("\n")
+                in_record = False
+                in_samples = False
+                simulated_ids = []
+                simulated_snps = []
+                for line in fsc_output_lines:
+                    if line.strip("") != "":
+                        if line[0] != "#":
+                            if "{" in line:
+                                in_record = True
+                            elif "}" in line:
+                                in_record = False
+                            elif "[[Samples]]" in line:
+                                in_samples = True
+                            elif "[[Structure]]" in line:
+                                in_samples = False
+                            elif in_record and in_samples:
+                                line_ary = line.split()
+                                simulated_ids.append(line_ary[0])
+                                simulated_snps.append(line_ary[2])
+                number_of_body_lines_this_linkage_block = 0
+                continue_searching = True
+                pos = 0
+                while continue_searching:
+                    if number_of_body_lines_this_linkage_block == linkage_block_size:
+                        continue_searching = False
+                    elif pos == len(simulated_snps[0]):
+                        continue_searching = False
+                        not_enough_snps_found = True
+                    else:
+                        pop_a_alleles = []
+                        pop_b_alleles = []
+                        pop_c_alleles = []
+                        pop_d_alleles = []
+                        for x in range(len(simulated_ids)):
+                            if "1_" in simulated_ids[x]:
+                                pop_a_alleles.append(simulated_snps[x][pos])
+                            elif "2_" in simulated_ids[x]:
+                                pop_b_alleles.append(simulated_snps[x][pos])
+                            elif "3_" in simulated_ids[x]:
+                                pop_c_alleles.append(simulated_snps[x][pos])
+                            elif "4_" in simulated_ids[x]:
+                                pop_d_alleles.append(simulated_snps[x][pos])
+                            else:
+                                print("ERROR: Id of simulated individual " + simulated_ids[x] + " could not be assigned to a population!")
+                                sys.exit(1)
+                        # Mask alleles according to the missing data in the observed SNPs.
+                        number_of_alleles_to_mask_a = len(pop_a_alleles) - number_of_alleles_per_snp_a[len(body_lines)]
+                        number_of_alleles_to_mask_b = len(pop_b_alleles) - number_of_alleles_per_snp_b[len(body_lines)]
+                        number_of_alleles_to_mask_c = len(pop_c_alleles) - number_of_alleles_per_snp_c[len(body_lines)]
+                        number_of_alleles_to_mask_d = len(pop_d_alleles) - number_of_alleles_per_snp_d[len(body_lines)]
+                        if min(number_of_alleles_to_mask_a,number_of_alleles_to_mask_b,number_of_alleles_to_mask_c,number_of_alleles_to_mask_d) < 0:
+                            print("ERROR: Something went wrong with masking of simulated data!")
+                            sys.exit(1)
+                        indices_of_alleles_to_mask_a = random.sample(range(len(pop_a_alleles)),number_of_alleles_to_mask_a)
+                        for x in indices_of_alleles_to_mask_a:
+                            pop_a_alleles[x] = "N"
+                        indices_of_alleles_to_mask_b = random.sample(range(len(pop_b_alleles)),number_of_alleles_to_mask_b)
+                        for x in indices_of_alleles_to_mask_b:
+                            pop_b_alleles[x] = "N"
+                        indices_of_alleles_to_mask_c = random.sample(range(len(pop_c_alleles)),number_of_alleles_to_mask_c)
+                        for x in indices_of_alleles_to_mask_c:
+                            pop_c_alleles[x] = "N"
+                        indices_of_alleles_to_mask_d = random.sample(range(len(pop_d_alleles)),number_of_alleles_to_mask_d)
+                        for x in indices_of_alleles_to_mask_d:
+                            pop_d_alleles[x] = "N"
 
-                pos += 1
+                        # Make sure that this is still a bi-allelic SNP after masking.
+                        allele_1_present = False
+                        allele_2_present = False
+                        if "0" in pop_a_alleles:
+                            allele_1_present = True
+                        if "1" in pop_a_alleles:
+                            allele_2_present = True
+                        if "0" in pop_b_alleles:
+                            allele_1_present = True
+                        if "1" in pop_b_alleles:
+                            allele_2_present = True
+                        if "0" in pop_c_alleles:
+                            allele_1_present = True
+                        if "1" in pop_c_alleles:
+                            allele_2_present = True
+                        if "0" in pop_d_alleles:
+                            allele_1_present = True
+                        if "1" in pop_d_alleles:
+                            allele_2_present = True
+                        
+                        # If this is the case, count allele frequencies.
+                        if allele_1_present and allele_2_present:
+                            body_line = ""
+                            body_line += str(pop_a_alleles.count("0")) + "," + str(pop_a_alleles.count("1")) + " "
+                            body_line += str(pop_b_alleles.count("0")) + "," + str(pop_b_alleles.count("1")) + " "
+                            body_line += str(pop_c_alleles.count("0")) + "," + str(pop_c_alleles.count("1")) + " "
+                            body_line += str(pop_d_alleles.count("0")) + "," + str(pop_d_alleles.count("1"))
+                            body_lines.append(body_line)
+                            number_of_body_lines_this_linkage_block += 1
+
+                        pos += 1
 
         # If enough bi-allelic SNPs were present after masking calculate the f4 statistic (and write data sets to files).
-        if enough_snps_found:
+        if not_enough_snps_found == False:
 
             # If an output directory has been specified, write this simulated data set in treemix format.
             if converged:
@@ -599,6 +779,8 @@ if number_of_simulations != -1:
                     simulated_jackknife_f4_z_zcores.append(simulated_jackknife_f4_z_zcore)
                 simulation_proportion_of_snps_variable_in_more_than_one_population.append(number_of_snps_variable_in_more_than_one_population_this_simulation/number_of_valid_snps)
                 simulation_proportion_of_snps_variable_on_both_sides_of_the_root.append(number_of_snps_variable_on_both_sides_of_the_root_this_simulation/number_of_valid_snps)
+                simulation_effective_population_sizes.append(effective_population_size)
+                simulation_times_of_second_divergence.append(1000*((time_of_second_divergence_x/100)/(1+(time_of_second_divergence_x/100))))
 
             # Save the results for this simulation: the f4 statistic, as well as the
             # proportion of SNPs variable in more than one population and
@@ -609,6 +791,14 @@ if number_of_simulations != -1:
 
     outfile.write("\rSimulations                                    \n")
     outfile.write("  Number of simulations: " + str(number_of_simulations) + "\n")
+    outfile.write("  Effective population size: " + "{0:.2f}".format(numpy.mean(simulation_effective_population_sizes)))
+    outfile.write(" (+/-")
+    outfile.write("{0:.2f}".format(numpy.std(simulation_effective_population_sizes)))
+    outfile.write(")\n")
+    outfile.write("  Divergence time ratio: " + "{0:.4f}".format(numpy.mean(simulation_times_of_second_divergence)/1000))
+    outfile.write(" (+/-")
+    outfile.write("{0:.4f}".format(numpy.std(simulation_times_of_second_divergence)/1000))
+    outfile.write(")\n")
     outfile.write("  Proportion of SNPs variable in more than one population: ")
     outfile.write("{0:.2f}".format(numpy.mean(simulation_proportion_of_snps_variable_in_more_than_one_population)))
     outfile.write(" (+/-")
@@ -713,51 +903,127 @@ else:
             reduced_f4s[max_f4_index] = 0
             reduced_f4 = numpy.mean(reduced_f4s)
             outlier_valid_body_lines.append(valid_body_lines[max_f4_index])
-            outlier_f4s.append(min_f4)
-    printed_oulier_snps_body_line_indices = []
-    index_string_length = max(len("Position"),len(str(len(original_body_lines))))
+            outlier_f4s.append(max_f4)
+    printed_outlier_snps_body_line_indices = []
+    index_string_length = max(len("Line"),len(str(len(original_body_lines))))
     outlier_lines = []
     for x in range(len(outlier_valid_body_lines)):
-        oulier_snps_body_line_indices = []
+        outlier_snps_body_line_indices = []
         for y in range(len(original_body_lines)):
             if original_body_lines[y] == outlier_valid_body_lines[x]:
-                oulier_snps_body_line_indices.append(y)
+                outlier_snps_body_line_indices.append(y)
         # Select the first line index that has not been printed yet.
         selected_outlier_snps_body_line_index = 0
-        for z in range(len(oulier_snps_body_line_indices)):
-            if oulier_snps_body_line_indices[z] not in printed_oulier_snps_body_line_indices:
-                selected_outlier_snps_body_line_index = oulier_snps_body_line_indices[z]
-                printed_oulier_snps_body_line_indices.append(selected_outlier_snps_body_line_index)
+        for z in range(len(outlier_snps_body_line_indices)):
+            if outlier_snps_body_line_indices[z] not in printed_outlier_snps_body_line_indices:
+                selected_outlier_snps_body_line_index = outlier_snps_body_line_indices[z]
+                printed_outlier_snps_body_line_indices.append(selected_outlier_snps_body_line_index)
                 break
-        selected_outlier_snps_body_line_index_string = str(selected_outlier_snps_body_line_index)
+        selected_outlier_snps_body_line_index_string = str(selected_outlier_snps_body_line_index+2)
         outlier_lines.append("  " + selected_outlier_snps_body_line_index_string.rjust(index_string_length) + " | " + outlier_valid_body_lines[x] + "    | " + "{0:.4f}".format(outlier_f4s[x]) + "\n")
 
     # Check wether the indices of the outlier SNPs are more clustered than expected by chance.
-    observed_total_index_distance = 0
-    for x in range(len(printed_oulier_snps_body_line_indices)):
-        for y in range(len(printed_oulier_snps_body_line_indices)):
-            if x != y:
-                observed_total_index_distance += (1/(printed_oulier_snps_body_line_indices[x]-printed_oulier_snps_body_line_indices[y]))**2
-    shuffled_total_index_distances = []
-    number_of_shuffle_repetitions = 1000
-    for x in range(number_of_shuffle_repetitions):
-        shuffled_printed_oulier_snps_body_line_indices = random.sample(range(len(original_body_lines)),len(printed_oulier_snps_body_line_indices))
-        shuffled_total_index_distance = 0
-        for x in range(len(shuffled_printed_oulier_snps_body_line_indices)):
-            for y in range(len(shuffled_printed_oulier_snps_body_line_indices)):
-                if x != y:
-                    shuffled_total_index_distance += (1/(shuffled_printed_oulier_snps_body_line_indices[x]-shuffled_printed_oulier_snps_body_line_indices[y]))**2
-        shuffled_total_index_distances.append(shuffled_total_index_distance)
-    number_of_reshuffled_indices_that_are_more_clustered_than_the_observed = 0
-    for shuffled_total_index_distance in shuffled_total_index_distances:
-        if shuffled_total_index_distance > observed_total_index_distance:
-            number_of_reshuffled_indices_that_are_more_clustered_than_the_observed += 1
     linked = False
     very_linked = False
-    if number_of_reshuffled_indices_that_are_more_clustered_than_the_observed < 0.05 * number_of_shuffle_repetitions:
-        linked = True
-    if number_of_reshuffled_indices_that_are_more_clustered_than_the_observed < 0.01 * number_of_shuffle_repetitions:
-        very_linked = True
+    if linkage_break_points == [] and len(outlier_valid_body_lines) > 0:
+        observed_index_distances = []
+        observed_cluster_measure = 0
+        number_of_reshuffled_indices_that_are_more_clustered_than_the_observed = 0
+        sorted_printed_outlier_snps_body_line_indices = sorted(printed_outlier_snps_body_line_indices)
+        for x in range(len(sorted_printed_outlier_snps_body_line_indices)-1):
+            observed_index_distances.append(sorted_printed_outlier_snps_body_line_indices[x+1]-sorted_printed_outlier_snps_body_line_indices[x])
+        for observed_index_distance in observed_index_distances:
+            observed_cluster_measure += 1/observed_index_distance
+        shuffled_cluster_measures = []
+        number_of_shuffle_repetitions = 1000
+        for x in range(number_of_shuffle_repetitions):
+            shuffled_printed_outlier_snps_body_line_indices = random.sample(range(len(original_body_lines)),len(printed_outlier_snps_body_line_indices))
+            shuffled_index_distances = []
+            shuffled_cluster_measure = 0
+            sorted_shuffled_printed_outlier_snps_body_line_indices = sorted(shuffled_printed_outlier_snps_body_line_indices)
+            for x in range(len(sorted_shuffled_printed_outlier_snps_body_line_indices)-1):
+                shuffled_index_distances.append(sorted_shuffled_printed_outlier_snps_body_line_indices[x+1]-sorted_shuffled_printed_outlier_snps_body_line_indices[x])
+            for shuffled_index_distance in shuffled_index_distances:
+                shuffled_cluster_measure += 1/shuffled_index_distance
+            shuffled_cluster_measures.append(shuffled_cluster_measure)
+        for shuffled_cluster_measure in shuffled_cluster_measures:
+            if shuffled_cluster_measure > observed_cluster_measure:
+                number_of_reshuffled_indices_that_are_more_clustered_than_the_observed += 1
+        if number_of_reshuffled_indices_that_are_more_clustered_than_the_observed < 0.05 * number_of_shuffle_repetitions:
+            linked = True
+        if number_of_reshuffled_indices_that_are_more_clustered_than_the_observed < 0.01 * number_of_shuffle_repetitions:
+            very_linked = True
+
+        if linked:
+            # Adjust weights of all positions with clustered outliers.
+            index_weights = []
+            for x in range(len(original_body_lines)):
+                if x not in sorted_printed_outlier_snps_body_line_indices:
+                    index_weights.append("N")
+                else:
+                    if len(sorted_printed_outlier_snps_body_line_indices) == 1:
+                        dist_left = x+1
+                        dist_right = len(original_body_lines)-x
+                    else:                        
+                        sorted_printed_outlier_snps_body_line_indices_index = sorted_printed_outlier_snps_body_line_indices.index(x)
+                        if sorted_printed_outlier_snps_body_line_indices_index == 0:
+                            dist_left = x+1
+                            dist_right = observed_index_distances[sorted_printed_outlier_snps_body_line_indices_index]
+                        elif sorted_printed_outlier_snps_body_line_indices_index == len(sorted_printed_outlier_snps_body_line_indices)-1:
+                            dist_left = observed_index_distances[sorted_printed_outlier_snps_body_line_indices_index-1]
+                            dist_right = len(original_body_lines)-x
+                        else:
+                            dist_left = observed_index_distances[sorted_printed_outlier_snps_body_line_indices_index-1]
+                            dist_right = observed_index_distances[sorted_printed_outlier_snps_body_line_indices_index]
+                    weight_component_left = 1-(1/dist_left)
+                    weight_component_right = 1-(1/dist_right)
+                    index_weight = 0.5*(weight_component_left+weight_component_right)
+                    index_weights.append(index_weight)
+
+            # Add the weights to the outlier_lines.
+            for x in range(len(outlier_lines)):
+                line_number = int(outlier_lines[x].split("|")[0].strip())-2
+                line_weight = index_weights[line_number]
+                outlier_lines[x] = outlier_lines[x].replace("\n","") + " | " + "{0:.2f}".format(line_weight) + "\n"
+
+            # Since the positions referred to the original data set (before removing lines with "0,0" missing data),
+            # the original lines have to be read once more.
+            valid_body_lines2 = []
+            valid_index_weights = []
+            weighted_f4s = []
+            for x in range(len(original_body_lines)):
+                if original_body_lines[x].strip() != "":
+                    if "0,0" not in original_body_lines[x]:
+                        valid_body_lines2.append(original_body_lines[x])
+                        valid_index_weights.append(index_weights[x])
+            # Replace "N"s in valid_index_weights so that the mean weight is 1.
+            number_of_ns = 0
+            weight_sum = 0
+            for x in range(len(valid_index_weights)):
+                if valid_index_weights[x] == "N":
+                    number_of_ns += 1
+                else:
+                    weight_sum += valid_index_weights[x]
+            for x in range(len(valid_index_weights)):
+                if valid_index_weights[x] == "N":
+                    valid_index_weights[x] = (len(valid_index_weights)-weight_sum)/number_of_ns
+            for x in range(len(valid_body_lines2)):
+                line_ary = valid_body_lines2[x].strip().split()
+                a_ary = line_ary[0].split(",")
+                b_ary = line_ary[1].split(",")
+                c_ary = line_ary[2].split(",")
+                d_ary = line_ary[3].split(",")
+                number_of_alleles_a = int(a_ary[0])+int(a_ary[1])
+                number_of_alleles_b = int(b_ary[0])+int(b_ary[1])
+                number_of_alleles_c = int(c_ary[0])+int(c_ary[1])
+                number_of_alleles_d = int(d_ary[0])+int(d_ary[1])
+                if min(number_of_alleles_a,number_of_alleles_b,number_of_alleles_c,number_of_alleles_d) > 0:
+                    a = int(a_ary[0])/number_of_alleles_a
+                    b = int(b_ary[0])/number_of_alleles_b
+                    c = int(c_ary[0])/number_of_alleles_c
+                    d = int(d_ary[0])/number_of_alleles_d
+                    weighted_f4s.append((a-b)*(c-d)*valid_index_weights[x])
+            weighted_f4 = numpy.mean(weighted_f4s)
 
     if observed_f4 < 0:
         if len(outlier_valid_body_lines) == 1:
@@ -771,14 +1037,23 @@ else:
             if very_linked:
                 outfile.write("  Note that the positions of these " + str(len(outlier_valid_body_lines)) + " SNPs are much more clustered than\n")
                 outfile.write("  expected by chance, indicating linkage and thus non-independence of their\n")
-                outfile.write("  f4 values.\n")
+                outfile.write("  f4 values. After downweighting clustered f4 outliers, the observed f4 \n")
+                outfile.write("  is ")
+                outfile.write("{0:.5f}".format(weighted_f4))
+                outfile.write(".\n")
             elif linked:
                 outfile.write("  Note that the positions of these " + str(len(outlier_valid_body_lines)) + " SNPs are more clustered than\n")
                 outfile.write("  expected by chance, indicating linkage and thus non-independence of their\n")
-                outfile.write("  f4 values.\n")
-            outfile.write("  It might be worth checking whether these are more often in or near genes \n")
-            outfile.write("  than expected. If so, this would suggest selection as an alternative \n")
-            outfile.write("  explanation for the negative f4 value.\n")
+                outfile.write("  f4 values. After downweighting clustered f4 outliers, the observed f4 \n")
+                outfile.write("  is ")
+                outfile.write("{0:.5f}".format(weighted_f4))
+                outfile.write(".\n")
+            if number_of_simulations != -1:
+                if proportion_of_simulations_with_f4_more_extreme_than_observed < 0.05:
+                    if len(outlier_valid_body_lines) < 100 and len(outlier_valid_body_lines)/len(valid_body_lines) < 0.1:
+                        outfile.write("  It might be worth checking whether these " + str(len(outlier_valid_body_lines)) + " SNPs are more often in or \n")
+                        outfile.write("  near genes than expected. If so, this would suggest selection as an \n")
+                        outfile.write("  alternative explanation for the negative f4 value.\n")
             outfile.write("  More information for these " + str(len(outlier_valid_body_lines)) + " SNP is listed below.\n")
         else:
             print("ERROR: Unexpected result during search for outlier f4 values")
@@ -794,20 +1069,33 @@ else:
             if very_linked:
                 outfile.write("  Note that the positions of these " + str(len(outlier_valid_body_lines)) + " SNPs are much more clustered than\n")
                 outfile.write("  expected by chance, indicating linkage and thus non-independence of their\n")
-                outfile.write("  f4 values.\n")
+                outfile.write("  f4 values. After downweighting clustered f4 outliers, the observed f4 \n")
+                outfile.write("  is ")
+                outfile.write("{0:.5f}".format(weighted_f4))
+                outfile.write(".\n")
             elif linked:
                 outfile.write("  Note that the positions of these " + str(len(outlier_valid_body_lines)) + " SNPs are more clustered than\n")
                 outfile.write("  expected by chance, indicating linkage and thus non-independence of their\n")
-                outfile.write("  f4 values.\n")
-            outfile.write("  It might be worth checking whether these are more often in or near genes \n")
-            outfile.write("  than expected. If so, this would suggest selection as an alternative \n")
-            outfile.write("  explanation for the positive f4 value.\n")
+                outfile.write("  f4 values. After downweighting clustered f4 outliers, the observed f4 \n")
+                outfile.write("  is ")
+                outfile.write("{0:.5f}".format(weighted_f4))
+                outfile.write(".\n")
+            if number_of_simulations != -1:
+                if proportion_of_simulations_with_f4_more_extreme_than_observed < 0.05:
+                    if len(outlier_valid_body_lines) < 100 and len(outlier_valid_body_lines)/len(valid_body_lines) < 0.1:
+                        outfile.write("  It might be worth checking whether these " + str(len(outlier_valid_body_lines)) + " SNPs are more often in or \n")
+                        outfile.write("  near genes than expected. If so, this would suggest selection as an \n")
+                        outfile.write("  alternative explanation for the positive f4 value.\n")
             outfile.write("  More information for these " + str(len(outlier_valid_body_lines)) + " SNP is listed below.\n")
         else:
             print("ERROR: Unexpected result during search for outlier f4 values")
     outfile.write("\n")
     outfile.write("Outliers\n")
-    outfile.write("  " + "Position".rjust(index_string_length) + " | " + "Allele frequencies" + " | f4\n")
+    if outlier_lines[0].count("|") == 2:
+        outfile.write("  " + "Line".rjust(index_string_length) + " | " + "Allele frequencies" + " | f4\n")
+    elif outlier_lines[0].count("|") == 3:
+        f4_string_length = len(outlier_lines[0].split("|")[2].strip())
+        outfile.write("  " + "Line".rjust(index_string_length) + " | " + "Allele frequencies" + " | " + "f4".ljust(f4_string_length) + " | Adjusted weight\n")
     for x in range(len(outlier_lines)):
         outfile.write(outlier_lines[x])
 
