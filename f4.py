@@ -1,6 +1,6 @@
 #!/usr/local/bin/python3
 
-# Michael Matschiner, 2015-05-17
+# Michael Matschiner, 2015-05-21
 # michaelmatschiner@mac.com
 
 # Import libraries and make sure we're on python 3.
@@ -30,7 +30,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     '-v', '--version',
     action='version',
-    version='%(prog)s 0.9'
+    version='%(prog)s 0.91'
     )
 parser.add_argument(
     '-k',
@@ -89,7 +89,7 @@ if output_dir != "-1" and number_of_simulations < 1:
 outfile.write("\n")
 outfile.write("  f4.py\n")
 outfile.write("----------------------------------------------------------------------\n")
-outfile.write("  Michael Matschiner | 2015-05-17 | evoinformatics.eu\n")
+outfile.write("  Michael Matschiner | 2015-05-21 | evoinformatics.eu\n")
 outfile.write("\n")
 outfile.write("Input\n")
 if infile.name == '<stdin>':
