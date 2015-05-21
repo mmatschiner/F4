@@ -46,10 +46,10 @@ This will use jackknife blocks of 10 SNPs each, and conduct 1000 coalescent simu
 
 <span style="font-family:Courier;">python3 f4.py -k 10 -s 1000 -o temp example.txt</span>
 
-Finally, the <span style="font-family:Courier;">-l</span> option, followed by a file name (and only in combination with the <span style="font-family:Courier;">-s</span> option) will write a log file that contains the 
+Finally, the <span style="font-family:Courier;">-l</span> option, followed by a file name (and only in combination with the <span style="font-family:Courier;">-s</span> option) will write a log file that contains for each simulation the effective population size parameter and the time of the second divergence used for the simulation, as well as the resulting proportion of SNPs in the simulated data set that are variable in more than one population, and the proportion of SNPs that are variable on both sides of the root split. The first two parameters (effective population size and time of the second divergence) can't easily be translated into anything biologically meaningful since the time of the first divergence event (the root) is arbitrarily fixed to 1000 time units. Nevertheless, changing these two parameters also changes the resulting proportions of variable SNPs, and thus, the first two parameters can be iteratively optimized to produce a data set that matches the observed data set in terms of SNP variability. And this optimization is exactly what's happening automatically during the burnin phase of the simulations. The log file allows you to assess convergence of these parameters, as well as of the simulated f4 values. It is written in a format that can be read by [Tracer] (http://tree.bio.ed.ac.uk/software/tracer/).
 
 #### F4 output
-Except when the <span style="font-family:Courier;">-o</span> option is used, F4 does not write any files, but only reports to stdout.
+Except when the <span style="font-family:Courier;">-o</span> or <span style="font-family:Courier;">-l</span> options are used, F4 does not write any files, but only reports to stdout.
 
 #### References
 * Reich D, Thangaraj K, Patterson N, Price AL, Singh L (2009) Reconstructing Indian population history. Nature 461, 489-494.
