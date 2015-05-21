@@ -46,6 +46,8 @@ This will use jackknife blocks of 10 SNPs each, and conduct 1000 coalescent simu
 
 <span style="font-family:Courier;">python3 f4.py -k 10 -s 1000 -o temp example.txt</span>
 
+Finally, the <span style="font-family:Courier;">-l</span> option, followed by a file name (and only in combination with the <span style="font-family:Courier;">-s</span> option) will write a log file that contains the 
+
 #### F4 output
 Except when the <span style="font-family:Courier;">-o</span> option is used, F4 does not write any files, but only reports to stdout.
 
