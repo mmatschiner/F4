@@ -27,9 +27,11 @@ pop1 pop2 pop3 pop4
 ...  
 </span>
 
+If your data does not consist of (ideally) unlinked SNPs, but of different blocks of linked SNPs, then these can be specified in the input file as above, but simply with additional empty lines to separate the individual blocks. This will not influence the calculations of the observed f4 value, but simulations will be performed accordingly, so that the number and lengths of simulated linkage blocks matches exactly that of the blocks in the input file. Thus, the reported proportion of simulated f4 values that are more extreme than the observed f4 value should still be a reliable measure of introgression, just as it is when the data set consists only of unlinked SNPs.
+
 #### Example file
 
-The example file <span style="font-family:Courier;">example.txt</span> can be found in the same directory as f4.py. The data come from a RAD sequencing data set of Sarotherodon cichlid fishes, published by Martin et al. (2015), on the Dryad digital repository (file Sarotherodon-pstacks-map3-mind95-geno5.ped in archive Sarotherodon-plink-nexus-STRUCTURE-files.zip, [here](http://datadryad.org/resource/doi:10.5061/dryad.b28p1 )). As you'll see by running this example file, there is good support for introgression in this data set, despite small samples sizes (betwen 1 and 4 individuals per population) and large amounts of missing data for some of the individuals.
+The example file <span style="font-family:Courier;">example.txt</span> can be found in the same directory as f4.py. The data come from a RAD sequencing data set of Sarotherodon cichlid fishes, published by Martin et al. (2015), on the Dryad digital repository (file Sarotherodon-pstacks-map3-mind95-geno5.ped in archive Sarotherodon-plink-nexus-STRUCTURE-files.zip, [here](http://datadryad.org/resource/doi:10.5061/dryad.b28p1 )). As you'll see by running this example file, there is good support for introgression in this data set, despite small samples sizes (betwen 1 and 4 individuals per population) and large amounts of missing data for some of the individuals. Some of the SNPs in this data set appear to be linked (as apparently multiple SNPs per RAD tag were used), but the pattern of introgression persists even after downweighting clusters of f4 outlier SNPs.
 
 #### Running F4
 To run F4, simply type
