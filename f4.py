@@ -57,6 +57,14 @@ parser.add_argument(
     help="Name of a directory to which simulated data sets should be written (in treemix format) (default: off)."
     )
 parser.add_argument(
+    '-l',
+    nargs=1,
+    type=str,
+    default=["-1"],
+    dest='log_file_name',
+    help="Name of a file to which simulation parameters should be written, to assess convergence (mostly for debugging) (default: off)."
+    )
+parser.add_argument(
     'infile',
     nargs='?',
     type=argparse.FileType('r'),
@@ -76,6 +84,7 @@ args = parser.parse_args()
 jackknife_k = args.jackknife_k[0]
 number_of_simulations = args.number_of_simulations[0]
 output_dir = args.output_dir[0]
+log_file_name = args.log_file_name[0]
 infile = args.infile
 outfile = args.outfile
 if infile.isatty():
@@ -84,6 +93,30 @@ if infile.isatty():
 if output_dir != "-1" and number_of_simulations < 1:
     print("")
     print("WARNING: An output directory for simulated data sets has been specified, but no simulations are performed!")
+
+# If a log file should be written, prepare it.
+if log_file_name != "-1":
+    if number_of_simulations < 1:
+        print("")
+        print("WARNING: An output directory for simulated data sets has been specified, but no simulations are performed!")
+    else:
+        log_file = open(log_file_name, "w")
+        log_header_line = "State"
+        log_header_line += "\t"
+        log_header_line += "Effective_population_size"
+        log_header_line += "\t"
+        log_header_line += "Time_of_second_divergence"
+        log_header_line += "\t"
+        log_header_line += "Proportion_of_SNPs_variable_in_more_than_one_population"
+        log_header_line += "\t"
+        log_header_line += "Proportion_of_SNPs_variable_on_both_sides_of_the_root"
+        log_header_line += "\t"
+        log_header_line += "f4"
+        log_header_line += "\t"
+        log_header_line += "f4_standard_error"
+        log_header_line += "\n"
+        log_file.write(log_header_line)
+        number_of_log_body_lines_written = 0
 
 # Prepare the output string.
 outfile.write("\n")
@@ -108,15 +141,16 @@ valid_body_lines = []
 number_of_snps = 0
 linkage_break_points = []
 for body_line in original_body_lines:
-    if body_line.strip() == "":
+    body_line = body_line.strip()
+    if body_line == "":
         linkage_break_points.append(len(valid_body_lines))
     else:
         number_of_snps += 1
-        if "0,0" not in body_line:
+        if " 0,0" not in body_line and body_line[:3] != "0,0":
             valid_body_lines.append(body_line)
+linkage_break_points = sorted(list(set(linkage_break_points)))
 if len(valid_body_lines) in linkage_break_points:
     linkage_break_points.remove(len(valid_body_lines))
-linkage_break_points = list(set(linkage_break_points))
 linkage_block_sizes = []
 for linkage_break_point in linkage_break_points:
     linkage_block_sizes.append(linkage_break_point-sum(linkage_block_sizes))
@@ -155,33 +189,37 @@ for x in range(len(body_lines)):
         number_of_alleles_per_snp_c.append(number_of_alleles_c)
         number_of_alleles_per_snp_d.append(number_of_alleles_d)
         number_of_populations_with_more_than_one_allele_for_this_snp = 0
-        variable_in_a_or_b = False
         a = int(a_ary[0])/number_of_alleles_a
         if a > 0 and a < 1:
             number_of_populations_with_more_than_one_allele_for_this_snp += 1
-            variable_in_a_or_b = True
         b = int(b_ary[0])/number_of_alleles_b
         if b > 0 and b < 1:
             number_of_populations_with_more_than_one_allele_for_this_snp += 1
-            variable_in_a_or_b = True
-        variable_in_c_or_d = False
+
+        variable_among_a_and_b = False
+        if round(a,2) != round(b,2):
+            variable_among_a_and_b = True
+
         c = int(c_ary[0])/number_of_alleles_c
         if c > 0 and c < 1:
             number_of_populations_with_more_than_one_allele_for_this_snp += 1
-            variable_in_c_or_d = True
         d = int(d_ary[0])/number_of_alleles_d
         if d > 0 and d < 1:
             number_of_populations_with_more_than_one_allele_for_this_snp += 1
-            variable_in_c_or_d = True
+
+        variable_among_c_and_d = False
+        if round(c,2) != round(d,2):
+            variable_among_c_and_d = True
+
         observed_f4s.append((a-b)*(c-d))
         number_of_valid_snps += 1
         if number_of_populations_with_more_than_one_allele_for_this_snp > 1:
             number_of_snps_variable_in_more_than_one_population += 1
-        if variable_in_a_or_b and variable_in_c_or_d:
+        if variable_among_a_and_b and variable_among_c_and_d:
             number_of_snps_variable_on_both_sides_of_the_root += 1
     else:
         print("ERROR: One of the four populations has no allele in this line: ")
-        print(lines[x].strip())
+        print(body_lines[x].strip())
         sys.exit(1)
 
 # Report data set statistics.
@@ -199,10 +237,19 @@ outfile.write("  Number of SNPs excluded due to missing data: " + str(number_of_
 outfile.write("  Number of SNPs used: " + str(number_of_valid_snps) + "\n")
 if len(linkage_block_sizes) > 1:
     outfile.write("  Number of linkage blocks detected (separated by empty lines): " + str(len(linkage_block_sizes)) + "\n")
-    outfile.write("  Number of SNPs used per linkage block: ")
-    for x in range(len(linkage_block_sizes)-1):
-        outfile.write(str(linkage_block_sizes[x]) + ", ")
-    outfile.write(str(linkage_block_sizes[-1]) + "\n")
+    if len(linkage_block_sizes) < 7:
+        outfile.write("  Numbers of SNPs used per linkage block: ")
+        for x in range(len(linkage_block_sizes)-1):
+            outfile.write(str(linkage_block_sizes[x]) + ", ")
+        outfile.write(str(linkage_block_sizes[-1]) + "\n")
+    else:
+        outfile.write("  Numbers of SNPs used per linkage block: between ")
+        outfile.write(str(min(linkage_block_sizes)))
+        outfile.write(" and ")
+        outfile.write(str(max(linkage_block_sizes)))
+        outfile.write(", with median ")
+        outfile.write(str(numpy.median(linkage_block_sizes)))
+        outfile.write("\n")
 proportion_missing_per_snp_a = []
 for n in number_of_alleles_per_snp_a:
     proportion_missing_per_snp_a.append(1-(n/max_number_of_alleles_a))
@@ -220,15 +267,15 @@ for n in number_of_alleles_per_snp_d:
     proportion_missing_per_snp_d.append(1-(n/max_number_of_alleles_d))
 proportion_missing_d = sum(proportion_missing_per_snp_d)/max(len(proportion_missing_per_snp_d),1)
 proportion_missing_max = max(proportion_missing_a,proportion_missing_b,proportion_missing_c,proportion_missing_d)
-outfile.write("  Proportion of missing data per population: ")
+outfile.write("  Proportions of missing data per population: ")
 outfile.write("{0:.2f}".format(proportion_missing_a) + ", ")
 outfile.write("{0:.2f}".format(proportion_missing_b) + ", ")
 outfile.write("{0:.2f}".format(proportion_missing_c) + ", ")
 outfile.write("{0:.2f}".format(proportion_missing_d) + "\n")
 proportion_of_snps_variable_in_more_than_one_population = number_of_snps_variable_in_more_than_one_population/number_of_valid_snps
-outfile.write("  Proportion of SNPs variable in more than one population: " + "{0:.2f}".format(proportion_of_snps_variable_in_more_than_one_population) + "\n")
+outfile.write("  Proportion of SNPs variable in more than one population: " + "{0:.3f}".format(proportion_of_snps_variable_in_more_than_one_population) + "\n")
 proportion_of_snps_variable_on_both_sides_of_the_root = number_of_snps_variable_on_both_sides_of_the_root/number_of_valid_snps
-outfile.write("  Proportion of SNPs variable on both sides of the root: " + "{0:.2f}".format(proportion_of_snps_variable_on_both_sides_of_the_root) + "\n")
+outfile.write("  Proportion of SNPs variable on both sides of the root: " + "{0:.3f}".format(proportion_of_snps_variable_on_both_sides_of_the_root) + "\n")
 observed_f4 = numpy.mean(observed_f4s)
 outfile.write("  Observed f4: " + "{0:.5f}".format(observed_f4) + "\n")
 outfile.write("\n")
@@ -309,6 +356,7 @@ if number_of_simulations != -1:
     FNULL = open(os.devnull, 'w')
     converged = False
     simulated_f4s = []
+    simulated_f4s_including_burnin = []
     if jackknife_k != -1:
         simulated_jackknife_f4_z_zcores = []
     simulation_proportion_of_snps_variable_in_more_than_one_population = []
@@ -321,11 +369,16 @@ if number_of_simulations != -1:
     effective_population_size_has_been_too_small = False
     time_of_second_divergence_has_been_too_large = False
     time_of_second_divergence_has_been_too_small = False
+    number_of_burnin_simulations = 0
     while len(simulated_f4s) < number_of_simulations:
         if len(simulated_f4s) == 0:
-            outfile.write("\rRunning simulations (in burnin) ...")
+            outfile.write("\rRunning simulations (burnin " + str(number_of_burnin_simulations) + ")...")
+            number_of_burnin_simulations += 1
+        elif len(simulated_f4s) == 1:
+            outfile.write("\r                                                                                ")
+            outfile.write("\rRunning simulations (1/" + str(number_of_simulations) + ")...")
         else:
-            outfile.write("\rRunning simulations (" + str(len(simulated_f4s)) + "/" + str(number_of_simulations) + ") ...                   ")
+            outfile.write("\rRunning simulations (" + str(len(simulated_f4s)) + "/" + str(number_of_simulations) + ")...")
         time_of_second_divergence = 1000*((time_of_second_divergence_x/100)/(1+(time_of_second_divergence_x/100)))
 
         # If just a single block of input lines was found, assume that all SNPs are unlinked. If however,
@@ -687,28 +740,33 @@ if number_of_simulations != -1:
                 number_of_alleles_c = int(c_ary[0])+int(c_ary[1])
                 number_of_alleles_d = int(d_ary[0])+int(d_ary[1])
                 number_of_populations_with_more_than_one_allele_for_this_snp_this_simulation = 0
-                variable_in_a_or_b = False
+
                 a = int(a_ary[0])/number_of_alleles_a
                 if a > 0 and a < 1:
                     number_of_populations_with_more_than_one_allele_for_this_snp_this_simulation += 1
-                    variable_in_a_or_b = True
                 b = int(b_ary[0])/number_of_alleles_b
                 if b > 0 and b < 1:
                     number_of_populations_with_more_than_one_allele_for_this_snp_this_simulation += 1
-                    variable_in_a_or_b = True
-                variable_in_c_or_d = False
+
+                variable_among_a_and_b = False
+                if round(a,2) != round(b,2):
+                    variable_among_a_and_b = True
+
                 c = int(c_ary[0])/number_of_alleles_c
                 if c > 0 and c < 1:
                     number_of_populations_with_more_than_one_allele_for_this_snp_this_simulation += 1
-                    variable_in_c_or_d = True
                 d = int(d_ary[0])/number_of_alleles_d
                 if d > 0 and d < 1:
                     number_of_populations_with_more_than_one_allele_for_this_snp_this_simulation += 1
-                    variable_in_c_or_d = True
+
+                variable_among_c_and_d = False
+                if round(c,2) != round(d,2):
+                    variable_among_c_and_d = True
+
                 f4s.append((a-b)*(c-d))
                 if number_of_populations_with_more_than_one_allele_for_this_snp_this_simulation > 1:
                     number_of_snps_variable_in_more_than_one_population_this_simulation += 1
-                if variable_in_a_or_b and variable_in_c_or_d:
+                if variable_among_a_and_b and variable_among_c_and_d:
                     number_of_snps_variable_on_both_sides_of_the_root_this_simulation += 1
             simulated_f4 = numpy.mean(f4s)
 
@@ -754,24 +812,48 @@ if number_of_simulations != -1:
                     simulated_jackknife_f4_z_zcore = simulated_f4/simulated_jackknife_f4_standard_error
 
             # Check the fit of the parameters of effective population size and time of second divergence.
-            # Let random chance decide which of the two variable is adjusted:
-            effective_population_size_scaler = 1 + random.random()/10
-            if random.randint(0,1) == 0:
+            # Decide which of the two variable is adjusted, based on how far each of the two parameters is from its optimum.
+            effective_population_size_scaler = 1 + random.random()/20
+            absolute_diff1 = numpy.absolute(number_of_snps_variable_in_more_than_one_population_this_simulation-number_of_snps_variable_in_more_than_one_population)
+            proportional_diff1 = absolute_diff1/number_of_snps_variable_in_more_than_one_population
+            absolute_diff2 = numpy.absolute(number_of_snps_variable_on_both_sides_of_the_root_this_simulation-number_of_snps_variable_on_both_sides_of_the_root)
+            proportional_diff2 = absolute_diff2/number_of_snps_variable_on_both_sides_of_the_root
+            change_effective_population_size = False
+            change_second_divergence_time = False
+            if proportional_diff1 > proportional_diff2:
+                if random.random() < proportional_diff1/(proportional_diff1+proportional_diff2):
+                    change_effective_population_size = True
+                else:
+                    change_second_divergence_time = True
+            elif proportional_diff1 < proportional_diff2:
+                if random.random() < proportional_diff2/(proportional_diff1+proportional_diff2):
+                    change_second_divergence_time = True
+                else:
+                    change_effective_population_size = True
+            else:
+                if random.randint(0,1) == 0:
+                    change_effective_population_size = True
+                else:
+                    change_second_divergence_time = True
+            if change_effective_population_size:
                 if number_of_snps_variable_in_more_than_one_population_this_simulation > number_of_snps_variable_in_more_than_one_population:
                     effective_population_size_has_been_too_large = True
                     effective_population_size = max(4, int(effective_population_size/effective_population_size_scaler))
                 elif number_of_snps_variable_in_more_than_one_population_this_simulation < number_of_snps_variable_in_more_than_one_population:
                     effective_population_size_has_been_too_small = True
                     effective_population_size = int(effective_population_size*effective_population_size_scaler)
-            else:
+            elif change_second_divergence_time:
                 if number_of_snps_variable_on_both_sides_of_the_root_this_simulation > number_of_snps_variable_on_both_sides_of_the_root:
                     time_of_second_divergence_has_been_too_large = True
-                    effective_population_size = max(4, int(effective_population_size/effective_population_size_scaler))
+                    # effective_population_size = max(4, int(effective_population_size/effective_population_size_scaler))
                     time_of_second_divergence_x -= random.randint(0,2)
                 elif number_of_snps_variable_on_both_sides_of_the_root_this_simulation < number_of_snps_variable_on_both_sides_of_the_root:
                     time_of_second_divergence_has_been_too_small = True
-                    effective_population_size = int(effective_population_size*effective_population_size_scaler)
+                    # effective_population_size = int(effective_population_size*effective_population_size_scaler)
                     time_of_second_divergence_x += random.randint(0,2)
+            else:
+                print("ERROR: None of the two parameters effective population size and second divergence time could be optimized in the last step.")
+                sys.exit(1)
 
             if converged:
                 simulated_f4s.append(simulated_f4)
@@ -781,16 +863,65 @@ if number_of_simulations != -1:
                 simulation_proportion_of_snps_variable_on_both_sides_of_the_root.append(number_of_snps_variable_on_both_sides_of_the_root_this_simulation/number_of_valid_snps)
                 simulation_effective_population_sizes.append(effective_population_size)
                 simulation_times_of_second_divergence.append(1000*((time_of_second_divergence_x/100)/(1+(time_of_second_divergence_x/100))))
+            simulated_f4s_including_burnin.append(simulated_f4)
+
+            if log_file_name != "-1":
+                log_body_line = str(number_of_log_body_lines_written)
+                log_body_line += "\t"
+                log_body_line += str(effective_population_size)
+                log_body_line += "\t"
+                log_body_line += str(1000*((time_of_second_divergence_x/100)/(1+(time_of_second_divergence_x/100))))
+                log_body_line += "\t"
+                log_body_line += str(number_of_snps_variable_in_more_than_one_population_this_simulation/number_of_valid_snps)
+                log_body_line += "\t"
+                log_body_line += str(number_of_snps_variable_on_both_sides_of_the_root_this_simulation/number_of_valid_snps)
+                log_body_line += "\t"
+                log_body_line += str(simulated_f4)
+                if len(simulated_f4s_including_burnin) == 1:
+                    simulated_f4_standard_error_last_10 = 0
+                elif len(simulated_f4s_including_burnin) < 10:
+                    simulated_f4_standard_error_last_10 = stats.sem(simulated_f4s_including_burnin)
+                else:
+                    simulated_f4_standard_error_last_10 = stats.sem(simulated_f4s_including_burnin[-10:])
+                log_body_line += "\t"
+                log_body_line += str(simulated_f4_standard_error_last_10)
+                log_body_line += "\n"
+                number_of_log_body_lines_written += 1
+                log_file.write(log_body_line)
 
             # Save the results for this simulation: the f4 statistic, as well as the
             # proportion of SNPs variable in more than one population and
             # the proportion of SNPs variable on both sides of the root.
             if effective_population_size_has_been_too_large and effective_population_size_has_been_too_small:
                 if time_of_second_divergence_has_been_too_large and time_of_second_divergence_has_been_too_small:
-                    converged = True
+                    if proportional_diff1 < 0.05 and proportional_diff2 < 0.05:
+                        if converged == False:
+                            converged = True
+
+    # Check whether there may have been convergence issues. If both the proportion of SNPs variable in more than one
+    # population and the proportion of SNPs variable on both sides of the root lie within the standard deviation of
+    # the values resulting from simulations, there seem to be no issues.
+    simulation_proportion_of_snps_variable_in_more_than_one_population_mean = numpy.mean(simulation_proportion_of_snps_variable_in_more_than_one_population)
+    simulation_proportion_of_snps_variable_in_more_than_one_population_std = numpy.std(simulation_proportion_of_snps_variable_in_more_than_one_population)
+    lower1 = simulation_proportion_of_snps_variable_in_more_than_one_population_mean-simulation_proportion_of_snps_variable_in_more_than_one_population_std
+    upper1 = simulation_proportion_of_snps_variable_in_more_than_one_population_mean+simulation_proportion_of_snps_variable_in_more_than_one_population_std
+    simulation_proportion_of_snps_variable_on_both_sides_of_the_root_mean = numpy.mean(simulation_proportion_of_snps_variable_on_both_sides_of_the_root)
+    simulation_proportion_of_snps_variable_on_both_sides_of_the_root_std = numpy.std(simulation_proportion_of_snps_variable_on_both_sides_of_the_root)
+    lower2 = simulation_proportion_of_snps_variable_on_both_sides_of_the_root_mean-simulation_proportion_of_snps_variable_on_both_sides_of_the_root_std
+    upper2 = simulation_proportion_of_snps_variable_on_both_sides_of_the_root_mean+simulation_proportion_of_snps_variable_on_both_sides_of_the_root_std
+    convergence_issues = False
+    if proportion_of_snps_variable_in_more_than_one_population < lower1:
+        convergence_issues = True
+    elif proportion_of_snps_variable_in_more_than_one_population > upper1:
+        convergence_issues = True
+    elif proportion_of_snps_variable_on_both_sides_of_the_root < lower2:
+        convergence_issues = True
+    elif proportion_of_snps_variable_on_both_sides_of_the_root > upper2:
+        convergence_issues = True
 
     outfile.write("\rSimulations                                    \n")
-    outfile.write("  Number of simulations: " + str(number_of_simulations) + "\n")
+    outfile.write("  Number of burnin simulations: " + str(number_of_burnin_simulations) + "\n")
+    outfile.write("  Number of post-burnin simulations: " + str(number_of_simulations) + "\n")
     outfile.write("  Effective population size: " + "{0:.2f}".format(numpy.mean(simulation_effective_population_sizes)))
     outfile.write(" (+/-")
     outfile.write("{0:.2f}".format(numpy.std(simulation_effective_population_sizes)))
@@ -800,14 +931,14 @@ if number_of_simulations != -1:
     outfile.write("{0:.4f}".format(numpy.std(simulation_times_of_second_divergence)/1000))
     outfile.write(")\n")
     outfile.write("  Proportion of SNPs variable in more than one population: ")
-    outfile.write("{0:.2f}".format(numpy.mean(simulation_proportion_of_snps_variable_in_more_than_one_population)))
+    outfile.write("{0:.3f}".format(simulation_proportion_of_snps_variable_in_more_than_one_population_mean))
     outfile.write(" (+/-")
-    outfile.write("{0:.2f}".format(numpy.std(simulation_proportion_of_snps_variable_in_more_than_one_population)))
+    outfile.write("{0:.3f}".format(simulation_proportion_of_snps_variable_in_more_than_one_population_std))
     outfile.write(")\n")
     outfile.write("  Proportion of SNPs variable on both sides of the root: ")
-    outfile.write("{0:.2f}".format(numpy.mean(simulation_proportion_of_snps_variable_on_both_sides_of_the_root)))
+    outfile.write("{0:.3f}".format(simulation_proportion_of_snps_variable_on_both_sides_of_the_root_mean))
     outfile.write(" (+/-")
-    outfile.write("{0:.2f}".format(numpy.std(simulation_proportion_of_snps_variable_on_both_sides_of_the_root)))
+    outfile.write("{0:.3f}".format(simulation_proportion_of_snps_variable_on_both_sides_of_the_root_std))
     outfile.write(")\n")
     outfile.write("  Simulated f4: ")
     outfile.write("{0:.5f}".format(numpy.mean(simulated_f4s)))
@@ -864,12 +995,24 @@ else:
             outfile.write("  probability that the observed difference can result from incomplete\n")
             outfile.write("  lineage sorting alone.\n")
         elif proportion_of_simulations_with_f4_more_extreme_than_observed < 0.05:
-            outfile.write("  The observed f4 value differs from zero, and there is a low\n")
-            outfile.write("  probability that the observed difference can result from incomplete\n")
-            outfile.write("  lineage sorting alone.\n")
+            outfile.write("  The observed f4 value differs from zero, and there is a low probability\n")
+            outfile.write("  that the observed difference can result from incomplete lineage\n")
+            outfile.write("  sorting alone.\n")
         else:
             outfile.write("  The observed f4 value differs from zero, but the observed difference\n")
             outfile.write("  could result from incomplete lineage sorting alone.\n")
+
+        if convergence_issues:
+            outfile.write("  Note that the simulated proportion of SNPs that are variable in one or\n")
+            outfile.write("  more populations and/or the simulated proportion of SNPs that are variable\n")
+            outfile.write("  on both sides of the root differ from the observed, which indicates\n")
+            outfile.write("  convergence issues. This might be solved by increasing the number of\n")
+            if log_file_name == "-1":
+                outfile.write("  simulations. Also consider using option '-l' to write a log file that\n")
+                outfile.write("  could be more informative regarding convergence.\n")
+            else:
+                outfile.write("  simulations. To assess convergence in more detail, use Tracer to open the\n")
+                outfile.write("  log file '" + str(log_file_name) + "'.\n")
 
     # Check which and how many SNPs are driving this pattern.
     outlier_valid_body_lines = []
@@ -920,7 +1063,7 @@ else:
                 printed_outlier_snps_body_line_indices.append(selected_outlier_snps_body_line_index)
                 break
         selected_outlier_snps_body_line_index_string = str(selected_outlier_snps_body_line_index+2)
-        outlier_lines.append("  " + selected_outlier_snps_body_line_index_string.rjust(index_string_length) + " | " + outlier_valid_body_lines[x] + "    | " + "{0:.4f}".format(outlier_f4s[x]) + "\n")
+        outlier_lines.append("  " + selected_outlier_snps_body_line_index_string.rjust(index_string_length) + " | " + outlier_valid_body_lines[x] + " | " + "{0:.4f}".format(outlier_f4s[x]) + "\n")
 
     # Check wether the indices of the outlier SNPs are more clustered than expected by chance.
     linked = False
@@ -1023,7 +1166,16 @@ else:
                     c = int(c_ary[0])/number_of_alleles_c
                     d = int(d_ary[0])/number_of_alleles_d
                     weighted_f4s.append((a-b)*(c-d)*valid_index_weights[x])
+            number_of_simulations_with_f4_more_extreme_than_observed_weighted = 0
             weighted_f4 = numpy.mean(weighted_f4s)
+            for simulated_f4 in simulated_f4s:
+                if weighted_f4 < 0 and simulated_f4 < weighted_f4:
+                    number_of_simulations_with_f4_more_extreme_than_observed_weighted += 1
+                elif weighted_f4 > 0 and simulated_f4 > weighted_f4:
+                    number_of_simulations_with_f4_more_extreme_than_observed_weighted += 1
+                elif weighted_f4 == 0 and simulated_f4 != weighted_f4:
+                    number_of_simulations_with_f4_more_extreme_than_observed_weighted += 1
+            proportion_of_simulations_with_f4_more_extreme_than_observed_weighted = number_of_simulations_with_f4_more_extreme_than_observed_weighted/number_of_simulations
 
     if observed_f4 < 0:
         if len(outlier_valid_body_lines) == 1:
@@ -1040,6 +1192,9 @@ else:
                 outfile.write("  f4 values. After downweighting clustered f4 outliers, the observed f4 \n")
                 outfile.write("  is ")
                 outfile.write("{0:.5f}".format(weighted_f4))
+                outfile.write(", and the proportion of simulated f4 values smaller than\n")
+                outfile.write("  this is ")
+                outfile.write("{0:.4f}".format(proportion_of_simulations_with_f4_more_extreme_than_observed_weighted))
                 outfile.write(".\n")
             elif linked:
                 outfile.write("  Note that the positions of these " + str(len(outlier_valid_body_lines)) + " SNPs are more clustered than\n")
@@ -1072,6 +1227,9 @@ else:
                 outfile.write("  f4 values. After downweighting clustered f4 outliers, the observed f4 \n")
                 outfile.write("  is ")
                 outfile.write("{0:.5f}".format(weighted_f4))
+                outfile.write(", and the proportion of simulated f4 values larger than\n")
+                outfile.write("  this is ")
+                outfile.write("{0:.4f}".format(proportion_of_simulations_with_f4_more_extreme_than_observed_weighted))
                 outfile.write(".\n")
             elif linked:
                 outfile.write("  Note that the positions of these " + str(len(outlier_valid_body_lines)) + " SNPs are more clustered than\n")
@@ -1091,12 +1249,35 @@ else:
             print("ERROR: Unexpected result during search for outlier f4 values")
     outfile.write("\n")
     outfile.write("Outliers\n")
+    allele_freq_string_lengths = []
+    for outlier_line in outlier_lines:
+        allele_freq_string_lengths.append(len(outlier_line.split("|")[1].strip()))
+    allele_freq_col_width = max(len("Allele frequencies"),max(allele_freq_string_lengths))
     if outlier_lines[0].count("|") == 2:
-        outfile.write("  " + "Line".rjust(index_string_length) + " | " + "Allele frequencies" + " | f4\n")
+        outfile.write("  " + "Line".rjust(index_string_length) + " | " + "Allele frequencies".ljust(allele_freq_col_width) + " | f4\n")
     elif outlier_lines[0].count("|") == 3:
         f4_string_length = len(outlier_lines[0].split("|")[2].strip())
-        outfile.write("  " + "Line".rjust(index_string_length) + " | " + "Allele frequencies" + " | " + "f4".ljust(f4_string_length) + " | Adjusted weight\n")
-    for x in range(len(outlier_lines)):
-        outfile.write(outlier_lines[x])
+        outfile.write("  " + "Line".rjust(index_string_length) + " | " + "Allele frequencies".ljust(allele_freq_col_width) + " | " + "f4".ljust(f4_string_length) + " | Adjusted weight\n")
+    if outlier_lines[0].count("|") == 2:
+        for x in range(len(outlier_lines)):
+            outlier_ary = outlier_lines[x].split(" | ")
+            outlier_line = outlier_ary[0] + " | " + outlier_ary[1].ljust(allele_freq_col_width) + " | " + outlier_ary[2]
+            outfile.write(outlier_line)
+    elif outlier_lines[0].count("|") == 3:
+        for x in range(len(outlier_lines)):
+            outlier_ary = outlier_lines[x].split(" | ")
+            outlier_line = outlier_ary[0] + " | " + outlier_ary[1].ljust(allele_freq_col_width) + " | " + outlier_ary[2] + " | " + outlier_ary[3]
+            outfile.write(outlier_line)
 
 outfile.write("\n")
+
+if number_of_simulations != -1:
+    if log_file_name != "-1" or output_dir != "-1":
+        outfile.write("Output\n")
+    if log_file_name != "-1":
+        outfile.write("  Log file (readable with Tracer): " + str(log_file_name) + "\n")
+    if output_dir != "-1":
+        outfile.write("  Post-burnin simulated data sets (readable with Treemix): " + str(number_of_simulations) + " files in " + str(output_dir) + "\n")
+    if log_file_name != "-1" or output_dir != "-1":
+        outfile.write("\n")
+
