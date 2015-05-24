@@ -116,6 +116,7 @@ if log_file_name != "-1":
         log_header_line += "f4_standard_error"
         log_header_line += "\n"
         log_file.write(log_header_line)
+        log_file.flush()
         number_of_log_body_lines_written = 0
 
 # Prepare the output string.
@@ -364,7 +365,7 @@ if number_of_simulations != -1:
     simulation_effective_population_sizes = []
     simulation_times_of_second_divergence = []
     effective_population_size = 100
-    time_of_second_divergence_x = 100
+    time_of_second_divergence = 500
     effective_population_size_has_been_too_large = False
     effective_population_size_has_been_too_small = False
     time_of_second_divergence_has_been_too_large = False
@@ -379,7 +380,7 @@ if number_of_simulations != -1:
             outfile.write("\rRunning simulations (1/" + str(number_of_simulations) + ")...")
         else:
             outfile.write("\rRunning simulations (" + str(len(simulated_f4s)) + "/" + str(number_of_simulations) + ")...")
-        time_of_second_divergence = 1000*((time_of_second_divergence_x/100)/(1+(time_of_second_divergence_x/100)))
+        # time_of_second_divergence = 1000*((time_of_second_divergence_x/100)/(1+(time_of_second_divergence_x/100)))
 
         # If just a single block of input lines was found, assume that all SNPs are unlinked. If however,
         # multiple blocks separated by empty lines were found, assume these to represent linkage blocks.
@@ -835,6 +836,7 @@ if number_of_simulations != -1:
                     change_effective_population_size = True
                 else:
                     change_second_divergence_time = True
+            print("change_effective_population_size: " + str(change_effective_population_size) + " change_second_divergence_time:" + str(change_second_divergence_time))
             if change_effective_population_size:
                 if number_of_snps_variable_in_more_than_one_population_this_simulation > number_of_snps_variable_in_more_than_one_population:
                     effective_population_size_has_been_too_large = True
@@ -846,11 +848,17 @@ if number_of_simulations != -1:
                 if number_of_snps_variable_on_both_sides_of_the_root_this_simulation > number_of_snps_variable_on_both_sides_of_the_root:
                     time_of_second_divergence_has_been_too_large = True
                     # effective_population_size = max(4, int(effective_population_size/effective_population_size_scaler))
-                    time_of_second_divergence_x -= random.randint(0,2)
+                    # time_of_second_divergence_x -= random.randint(0,2)
+                    time_of_second_divergence -= 10*random.random()
+                    if time_of_second_divergence < 1:
+                        time_of_second_divergence = 1
                 elif number_of_snps_variable_on_both_sides_of_the_root_this_simulation < number_of_snps_variable_on_both_sides_of_the_root:
                     time_of_second_divergence_has_been_too_small = True
                     # effective_population_size = int(effective_population_size*effective_population_size_scaler)
-                    time_of_second_divergence_x += random.randint(0,2)
+                    # time_of_second_divergence_x += random.randint(0,2)
+                    time_of_second_divergence += 10*random.random()
+                    if time_of_second_divergence > 999:
+                        time_of_second_divergence = 999
             else:
                 print("ERROR: None of the two parameters effective population size and second divergence time could be optimized in the last step.")
                 sys.exit(1)
@@ -862,7 +870,8 @@ if number_of_simulations != -1:
                 simulation_proportion_of_snps_variable_in_more_than_one_population.append(number_of_snps_variable_in_more_than_one_population_this_simulation/number_of_valid_snps)
                 simulation_proportion_of_snps_variable_on_both_sides_of_the_root.append(number_of_snps_variable_on_both_sides_of_the_root_this_simulation/number_of_valid_snps)
                 simulation_effective_population_sizes.append(effective_population_size)
-                simulation_times_of_second_divergence.append(1000*((time_of_second_divergence_x/100)/(1+(time_of_second_divergence_x/100))))
+                # simulation_times_of_second_divergence.append(1000*((time_of_second_divergence_x/100)/(1+(time_of_second_divergence_x/100))))
+                simulation_times_of_second_divergence.append(time_of_second_divergence)
             simulated_f4s_including_burnin.append(simulated_f4)
 
             if log_file_name != "-1":
@@ -870,7 +879,8 @@ if number_of_simulations != -1:
                 log_body_line += "\t"
                 log_body_line += str(effective_population_size)
                 log_body_line += "\t"
-                log_body_line += str(1000*((time_of_second_divergence_x/100)/(1+(time_of_second_divergence_x/100))))
+                # log_body_line += str(1000*((time_of_second_divergence_x/100)/(1+(time_of_second_divergence_x/100))))
+                log_body_line += str(time_of_second_divergence)
                 log_body_line += "\t"
                 log_body_line += str(number_of_snps_variable_in_more_than_one_population_this_simulation/number_of_valid_snps)
                 log_body_line += "\t"
@@ -888,6 +898,7 @@ if number_of_simulations != -1:
                 log_body_line += "\n"
                 number_of_log_body_lines_written += 1
                 log_file.write(log_body_line)
+                log_file.flush()
 
             # Save the results for this simulation: the f4 statistic, as well as the
             # proportion of SNPs variable in more than one population and
@@ -1047,6 +1058,7 @@ else:
             reduced_f4 = numpy.mean(reduced_f4s)
             outlier_valid_body_lines.append(valid_body_lines[max_f4_index])
             outlier_f4s.append(max_f4)
+
     printed_outlier_snps_body_line_indices = []
     index_string_length = max(len("Line"),len(str(len(original_body_lines))))
     outlier_lines = []
@@ -1068,7 +1080,8 @@ else:
     # Check wether the indices of the outlier SNPs are more clustered than expected by chance.
     linked = False
     very_linked = False
-    if linkage_break_points == [] and len(outlier_valid_body_lines) > 0:
+
+    if linkage_break_points == [] and len(outlier_valid_body_lines) > 1:
         observed_index_distances = []
         observed_cluster_measure = 0
         number_of_reshuffled_indices_that_are_more_clustered_than_the_observed = 0
@@ -1166,16 +1179,19 @@ else:
                     c = int(c_ary[0])/number_of_alleles_c
                     d = int(d_ary[0])/number_of_alleles_d
                     weighted_f4s.append((a-b)*(c-d)*valid_index_weights[x])
-            number_of_simulations_with_f4_more_extreme_than_observed_weighted = 0
             weighted_f4 = numpy.mean(weighted_f4s)
-            for simulated_f4 in simulated_f4s:
-                if weighted_f4 < 0 and simulated_f4 < weighted_f4:
-                    number_of_simulations_with_f4_more_extreme_than_observed_weighted += 1
-                elif weighted_f4 > 0 and simulated_f4 > weighted_f4:
-                    number_of_simulations_with_f4_more_extreme_than_observed_weighted += 1
-                elif weighted_f4 == 0 and simulated_f4 != weighted_f4:
-                    number_of_simulations_with_f4_more_extreme_than_observed_weighted += 1
-            proportion_of_simulations_with_f4_more_extreme_than_observed_weighted = number_of_simulations_with_f4_more_extreme_than_observed_weighted/number_of_simulations
+
+            if number_of_simulations != -1:
+                number_of_simulations_with_f4_more_extreme_than_observed_weighted = 0
+                for simulated_f4 in simulated_f4s:
+                    if weighted_f4 < 0 and simulated_f4 < weighted_f4:
+                        number_of_simulations_with_f4_more_extreme_than_observed_weighted += 1
+                    elif weighted_f4 > 0 and simulated_f4 > weighted_f4:
+                        number_of_simulations_with_f4_more_extreme_than_observed_weighted += 1
+                    elif weighted_f4 == 0 and simulated_f4 != weighted_f4:
+                        number_of_simulations_with_f4_more_extreme_than_observed_weighted += 1
+                proportion_of_simulations_with_f4_more_extreme_than_observed_weighted = number_of_simulations_with_f4_more_extreme_than_observed_weighted/number_of_simulations
+
 
     if observed_f4 < 0:
         if len(outlier_valid_body_lines) == 1:
@@ -1192,9 +1208,10 @@ else:
                 outfile.write("  f4 values. After downweighting clustered f4 outliers, the observed f4 \n")
                 outfile.write("  is ")
                 outfile.write("{0:.5f}".format(weighted_f4))
-                outfile.write(", and the proportion of simulated f4 values smaller than\n")
-                outfile.write("  this is ")
-                outfile.write("{0:.4f}".format(proportion_of_simulations_with_f4_more_extreme_than_observed_weighted))
+                if number_of_simulations != -1:
+                    outfile.write(", and the proportion of simulated f4 values smaller than\n")
+                    outfile.write("  this is ")
+                    outfile.write("{0:.4f}".format(proportion_of_simulations_with_f4_more_extreme_than_observed_weighted))
                 outfile.write(".\n")
             elif linked:
                 outfile.write("  Note that the positions of these " + str(len(outlier_valid_body_lines)) + " SNPs are more clustered than\n")
@@ -1212,6 +1229,7 @@ else:
             outfile.write("  More information for these " + str(len(outlier_valid_body_lines)) + " SNP is listed below.\n")
         else:
             print("ERROR: Unexpected result during search for outlier f4 values")
+
     if observed_f4 > 0:
         if len(outlier_valid_body_lines) == 1:
             outfile.write("  The positive f4 value is primarily driven by a single SNP.\n")
@@ -1227,9 +1245,10 @@ else:
                 outfile.write("  f4 values. After downweighting clustered f4 outliers, the observed f4 \n")
                 outfile.write("  is ")
                 outfile.write("{0:.5f}".format(weighted_f4))
-                outfile.write(", and the proportion of simulated f4 values larger than\n")
-                outfile.write("  this is ")
-                outfile.write("{0:.4f}".format(proportion_of_simulations_with_f4_more_extreme_than_observed_weighted))
+                if number_of_simulations != -1:
+                    outfile.write(", and the proportion of simulated f4 values larger than\n")
+                    outfile.write("  this is ")
+                    outfile.write("{0:.4f}".format(proportion_of_simulations_with_f4_more_extreme_than_observed_weighted))
                 outfile.write(".\n")
             elif linked:
                 outfile.write("  Note that the positions of these " + str(len(outlier_valid_body_lines)) + " SNPs are more clustered than\n")
