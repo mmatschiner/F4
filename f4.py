@@ -944,9 +944,9 @@ if number_of_simulations != -1:
             if mean_effective_population_size_has_been_too_large and mean_effective_population_size_has_been_too_small:
                 if time_of_second_divergence_has_been_too_large and time_of_second_divergence_has_been_too_small:
                     absolute_diff1 = numpy.absolute(number_of_snps_variable_in_more_than_one_population_this_simulation-number_of_snps_variable_in_more_than_one_population)
-                    proportional_diff1 = absolute_diff1/number_of_snps_variable_in_more_than_one_population
+                    proportional_diff1 = absolute_diff1/max(1,number_of_snps_variable_in_more_than_one_population)
                     absolute_diff2 = numpy.absolute(number_of_snps_variable_on_both_sides_of_the_root_this_simulation-number_of_snps_variable_on_both_sides_of_the_root)
-                    proportional_diff2 = absolute_diff2/number_of_snps_variable_on_both_sides_of_the_root
+                    proportional_diff2 = absolute_diff2/max(1,number_of_snps_variable_on_both_sides_of_the_root)
                     if proportional_diff1 < 0.05 and proportional_diff2 < 0.05:
                         if converged == False:
                             converged = True
