@@ -103,7 +103,11 @@ if log_file_name != "-1":
         log_file = open(log_file_name, "w")
         log_header_line = "State"
         log_header_line += "\t"
-        log_header_line += "Effective_population_size"
+        log_header_line += "Mean_effective_population_size"
+        log_header_line += "\t"
+        log_header_line += "Effective_population_size_before_second_divergence"
+        log_header_line += "\t"
+        log_header_line += "Effective_population_size_after_second_divergence"
         log_header_line += "\t"
         log_header_line += "Time_of_second_divergence"
         log_header_line += "\t"
@@ -362,12 +366,14 @@ if number_of_simulations != -1:
         simulated_jackknife_f4_z_zcores = []
     simulation_proportion_of_snps_variable_in_more_than_one_population = []
     simulation_proportion_of_snps_variable_on_both_sides_of_the_root = []
-    simulation_effective_population_sizes = []
+    simulation_mean_effective_population_sizes = []
+    simulation_effective_population_sizes_before = []
+    simulation_effective_population_sizes_after = []
     simulation_times_of_second_divergence = []
-    effective_population_size = 100
+    mean_effective_population_size = 200
     time_of_second_divergence = 500
-    effective_population_size_has_been_too_large = False
-    effective_population_size_has_been_too_small = False
+    mean_effective_population_size_has_been_too_large = False
+    mean_effective_population_size_has_been_too_small = False
     time_of_second_divergence_has_been_too_large = False
     time_of_second_divergence_has_been_too_small = False
     number_of_burnin_simulations = 0
@@ -380,6 +386,9 @@ if number_of_simulations != -1:
             outfile.write("\rRunning simulations (1/" + str(number_of_simulations) + ")...")
         else:
             outfile.write("\rRunning simulations (" + str(len(simulated_f4s)) + "/" + str(number_of_simulations) + ")...")
+        effective_population_size_before = mean_effective_population_size*(500/(1000-time_of_second_divergence))
+        effective_population_size_after = mean_effective_population_size*(500/time_of_second_divergence)
+        effective_population_size_ratio = effective_population_size_before/effective_population_size_after
         # time_of_second_divergence = 1000*((time_of_second_divergence_x/100)/(1+(time_of_second_divergence_x/100)))
 
         # If just a single block of input lines was found, assume that all SNPs are unlinked. If however,
@@ -390,10 +399,10 @@ if number_of_simulations != -1:
             fsc_input_string += "//Number of population samples (demes)\n"
             fsc_input_string += "4\n"
             fsc_input_string += "//Population effective sizes (number of genes)\n"
-            fsc_input_string += str(effective_population_size) + "\n"
-            fsc_input_string += str(effective_population_size) + "\n"
-            fsc_input_string += str(effective_population_size) + "\n"
-            fsc_input_string += str(effective_population_size) + "\n"
+            fsc_input_string += str(effective_population_size_after) + "\n"
+            fsc_input_string += str(effective_population_size_after) + "\n"
+            fsc_input_string += str(effective_population_size_after) + "\n"
+            fsc_input_string += str(effective_population_size_after) + "\n"
             fsc_input_string += "//Sample sizes\n"
             fsc_input_string += str(max_number_of_alleles_a) + "\n"
             fsc_input_string += str(max_number_of_alleles_b) + "\n"
@@ -408,8 +417,8 @@ if number_of_simulations != -1:
             fsc_input_string += "0 migration matrices\n"
             fsc_input_string += "//historical event: time, source, sink, migrants, new size, new growth rate, migr. matrix\n"
             fsc_input_string += "3 historical events\n"
-            fsc_input_string += str(int(time_of_second_divergence)) + " 0 1 1 1 0 0\n"
-            fsc_input_string += str(int(time_of_second_divergence)) + " 2 3 1 1 0 0\n"
+            fsc_input_string += str(int(time_of_second_divergence)) + " 0 1 1 " + str(effective_population_size_ratio) + " 0 0\n"
+            fsc_input_string += str(int(time_of_second_divergence)) + " 2 3 1 " + str(effective_population_size_ratio) + " 0 0\n"
             fsc_input_string += "1000 1 3 1 1 0 0\n"
             fsc_input_string += "//Number of independent loci [chromosome]\n"
             fsc_input_string += str(int(number_of_valid_snps/(1-proportion_missing_max))+1) + " 0\n"
@@ -554,10 +563,10 @@ if number_of_simulations != -1:
                 fsc_input_string += "//Number of population samples (demes)\n"
                 fsc_input_string += "4\n"
                 fsc_input_string += "//Population effective sizes (number of genes)\n"
-                fsc_input_string += str(effective_population_size) + "\n"
-                fsc_input_string += str(effective_population_size) + "\n"
-                fsc_input_string += str(effective_population_size) + "\n"
-                fsc_input_string += str(effective_population_size) + "\n"
+                fsc_input_string += str(effective_population_size_after) + "\n"
+                fsc_input_string += str(effective_population_size_after) + "\n"
+                fsc_input_string += str(effective_population_size_after) + "\n"
+                fsc_input_string += str(effective_population_size_after) + "\n"
                 fsc_input_string += "//Sample sizes\n"
                 fsc_input_string += str(max_number_of_alleles_a) + "\n"
                 fsc_input_string += str(max_number_of_alleles_b) + "\n"
@@ -572,8 +581,8 @@ if number_of_simulations != -1:
                 fsc_input_string += "0 migration matrices\n"
                 fsc_input_string += "//historical event: time, source, sink, migrants, new size, new growth rate, migr. matrix\n"
                 fsc_input_string += "3 historical events\n"
-                fsc_input_string += str(int(time_of_second_divergence)) + " 0 1 1 1 0 0\n"
-                fsc_input_string += str(int(time_of_second_divergence)) + " 2 3 1 1 0 0\n"
+                fsc_input_string += str(int(time_of_second_divergence)) + " 0 1 1 " + str(effective_population_size_ratio) + " 0 0\n"
+                fsc_input_string += str(int(time_of_second_divergence)) + " 2 3 1 " + str(effective_population_size_ratio) + " 0 0\n"
                 fsc_input_string += "1000 1 3 1 1 0 0\n"
                 fsc_input_string += "//Number of independent loci [chromosome]\n"
                 fsc_input_string += "1 0\n"
@@ -814,54 +823,78 @@ if number_of_simulations != -1:
 
             # Check the fit of the parameters of effective population size and time of second divergence.
             # Decide which of the two variable is adjusted, based on how far each of the two parameters is from its optimum.
-            effective_population_size_scaler = 1 + random.random()/20
-            absolute_diff1 = numpy.absolute(number_of_snps_variable_in_more_than_one_population_this_simulation-number_of_snps_variable_in_more_than_one_population)
-            proportional_diff1 = absolute_diff1/number_of_snps_variable_in_more_than_one_population
-            absolute_diff2 = numpy.absolute(number_of_snps_variable_on_both_sides_of_the_root_this_simulation-number_of_snps_variable_on_both_sides_of_the_root)
-            proportional_diff2 = absolute_diff2/number_of_snps_variable_on_both_sides_of_the_root
-            change_effective_population_size = False
-            change_second_divergence_time = False
-            if proportional_diff1 > proportional_diff2:
-                if random.random() < proportional_diff1/(proportional_diff1+proportional_diff2):
-                    change_effective_population_size = True
-                else:
-                    change_second_divergence_time = True
-            elif proportional_diff1 < proportional_diff2:
-                if random.random() < proportional_diff2/(proportional_diff1+proportional_diff2):
-                    change_second_divergence_time = True
-                else:
-                    change_effective_population_size = True
-            else:
-                if random.randint(0,1) == 0:
-                    change_effective_population_size = True
-                else:
-                    change_second_divergence_time = True
-            print("change_effective_population_size: " + str(change_effective_population_size) + " change_second_divergence_time:" + str(change_second_divergence_time))
-            if change_effective_population_size:
-                if number_of_snps_variable_in_more_than_one_population_this_simulation > number_of_snps_variable_in_more_than_one_population:
-                    effective_population_size_has_been_too_large = True
-                    effective_population_size = max(4, int(effective_population_size/effective_population_size_scaler))
-                elif number_of_snps_variable_in_more_than_one_population_this_simulation < number_of_snps_variable_in_more_than_one_population:
-                    effective_population_size_has_been_too_small = True
-                    effective_population_size = int(effective_population_size*effective_population_size_scaler)
-            elif change_second_divergence_time:
+            mean_effective_population_size_scaler = 1 + random.random()/20
+            if number_of_snps_variable_in_more_than_one_population_this_simulation > number_of_snps_variable_in_more_than_one_population:
                 if number_of_snps_variable_on_both_sides_of_the_root_this_simulation > number_of_snps_variable_on_both_sides_of_the_root:
+                    # Decrease the mean_effective_population_size.
+                    mean_effective_population_size_has_been_too_large = True
+                    mean_effective_population_size = max(4, int(mean_effective_population_size/mean_effective_population_size_scaler))
+                elif number_of_snps_variable_on_both_sides_of_the_root_this_simulation < number_of_snps_variable_on_both_sides_of_the_root:
+                    # Increase the time_of_second_divergence.
+                    time_of_second_divergence_has_been_too_small = True
+                    time_of_second_divergence += 10*random.random()
+                    if time_of_second_divergence > 999:
+                        time_of_second_divergence = 999
+                else:
+                    if random.randint(0,1) == 0:
+                        mean_effective_population_size = max(4, int(mean_effective_population_size/mean_effective_population_size_scaler))
+                    else:
+                        time_of_second_divergence += 10*random.random()
+                        if time_of_second_divergence > 999:
+                            time_of_second_divergence = 999
+            elif number_of_snps_variable_in_more_than_one_population_this_simulation < number_of_snps_variable_in_more_than_one_population:
+                if number_of_snps_variable_on_both_sides_of_the_root_this_simulation > number_of_snps_variable_on_both_sides_of_the_root:
+                    # Decrease the time_of_second_divergence.
                     time_of_second_divergence_has_been_too_large = True
-                    # effective_population_size = max(4, int(effective_population_size/effective_population_size_scaler))
-                    # time_of_second_divergence_x -= random.randint(0,2)
                     time_of_second_divergence -= 10*random.random()
                     if time_of_second_divergence < 1:
                         time_of_second_divergence = 1
                 elif number_of_snps_variable_on_both_sides_of_the_root_this_simulation < number_of_snps_variable_on_both_sides_of_the_root:
-                    time_of_second_divergence_has_been_too_small = True
-                    # effective_population_size = int(effective_population_size*effective_population_size_scaler)
-                    # time_of_second_divergence_x += random.randint(0,2)
-                    time_of_second_divergence += 10*random.random()
-                    if time_of_second_divergence > 999:
-                        time_of_second_divergence = 999
+                    # Increase the mean_effective_population_size.
+                    mean_effective_population_size_has_been_too_small = True
+                    mean_effective_population_size = int(mean_effective_population_size*mean_effective_population_size_scaler)
+                else:
+                    if random.randint(0,1) == 0:
+                        time_of_second_divergence -= 10*random.random()
+                        if time_of_second_divergence < 1:
+                            time_of_second_divergence = 1
+                    else:
+                        mean_effective_population_size = int(mean_effective_population_size*mean_effective_population_size_scaler)
             else:
-                print("ERROR: None of the two parameters effective population size and second divergence time could be optimized in the last step.")
-                sys.exit(1)
+                if random.randint(0,1) == 0:
+                    if number_of_snps_variable_on_both_sides_of_the_root_this_simulation > number_of_snps_variable_on_both_sides_of_the_root:
+                        # Decrease the mean_effective_population_size.
+                        mean_effective_population_size = max(4, int(mean_effective_population_size/mean_effective_population_size_scaler))
+                    elif number_of_snps_variable_on_both_sides_of_the_root_this_simulation < number_of_snps_variable_on_both_sides_of_the_root:
+                        # Increase the time_of_second_divergence.
+                        time_of_second_divergence += 10*random.random()
+                        if time_of_second_divergence > 999:
+                            time_of_second_divergence = 999
+                    else:
+                        if random.randint(0,1) == 0:
+                            mean_effective_population_size = max(4, int(mean_effective_population_size/mean_effective_population_size_scaler))
+                        else:
+                            time_of_second_divergence += 10*random.random()
+                            if time_of_second_divergence > 999:
+                                time_of_second_divergence = 999
+                else: 
+                    if number_of_snps_variable_on_both_sides_of_the_root_this_simulation > number_of_snps_variable_on_both_sides_of_the_root:
+                        # Decrease the time_of_second_divergence.
+                        time_of_second_divergence_has_been_too_large = True
+                        time_of_second_divergence -= 10*random.random()
+                        if time_of_second_divergence < 1:
+                            time_of_second_divergence = 1
+                    elif number_of_snps_variable_on_both_sides_of_the_root_this_simulation < number_of_snps_variable_on_both_sides_of_the_root:
+                        # Increase the mean_effective_population_size.
+                        mean_effective_population_size_has_been_too_small = True
+                        mean_effective_population_size = int(mean_effective_population_size*mean_effective_population_size_scaler)
+                    else:
+                        if random.randint(0,1) == 0:
+                            time_of_second_divergence -= 10*random.random()
+                            if time_of_second_divergence < 1:
+                                time_of_second_divergence = 1
+                        else:
+                            mean_effective_population_size = int(mean_effective_population_size*mean_effective_population_size_scaler)
 
             if converged:
                 simulated_f4s.append(simulated_f4)
@@ -869,15 +902,20 @@ if number_of_simulations != -1:
                     simulated_jackknife_f4_z_zcores.append(simulated_jackknife_f4_z_zcore)
                 simulation_proportion_of_snps_variable_in_more_than_one_population.append(number_of_snps_variable_in_more_than_one_population_this_simulation/number_of_valid_snps)
                 simulation_proportion_of_snps_variable_on_both_sides_of_the_root.append(number_of_snps_variable_on_both_sides_of_the_root_this_simulation/number_of_valid_snps)
-                simulation_effective_population_sizes.append(effective_population_size)
-                # simulation_times_of_second_divergence.append(1000*((time_of_second_divergence_x/100)/(1+(time_of_second_divergence_x/100))))
+                simulation_mean_effective_population_sizes.append(mean_effective_population_size)
+                simulation_effective_population_sizes_before.append(effective_population_size_before)
+                simulation_effective_population_sizes_after.append(effective_population_size_after)
                 simulation_times_of_second_divergence.append(time_of_second_divergence)
             simulated_f4s_including_burnin.append(simulated_f4)
 
             if log_file_name != "-1":
                 log_body_line = str(number_of_log_body_lines_written)
                 log_body_line += "\t"
-                log_body_line += str(effective_population_size)
+                log_body_line += str(mean_effective_population_size)
+                log_body_line += "\t"
+                log_body_line += str(effective_population_size_before)
+                log_body_line += "\t"
+                log_body_line += str(effective_population_size_after)
                 log_body_line += "\t"
                 # log_body_line += str(1000*((time_of_second_divergence_x/100)/(1+(time_of_second_divergence_x/100))))
                 log_body_line += str(time_of_second_divergence)
@@ -903,8 +941,12 @@ if number_of_simulations != -1:
             # Save the results for this simulation: the f4 statistic, as well as the
             # proportion of SNPs variable in more than one population and
             # the proportion of SNPs variable on both sides of the root.
-            if effective_population_size_has_been_too_large and effective_population_size_has_been_too_small:
+            if mean_effective_population_size_has_been_too_large and mean_effective_population_size_has_been_too_small:
                 if time_of_second_divergence_has_been_too_large and time_of_second_divergence_has_been_too_small:
+                    absolute_diff1 = numpy.absolute(number_of_snps_variable_in_more_than_one_population_this_simulation-number_of_snps_variable_in_more_than_one_population)
+                    proportional_diff1 = absolute_diff1/number_of_snps_variable_in_more_than_one_population
+                    absolute_diff2 = numpy.absolute(number_of_snps_variable_on_both_sides_of_the_root_this_simulation-number_of_snps_variable_on_both_sides_of_the_root)
+                    proportional_diff2 = absolute_diff2/number_of_snps_variable_on_both_sides_of_the_root
                     if proportional_diff1 < 0.05 and proportional_diff2 < 0.05:
                         if converged == False:
                             converged = True
@@ -933,9 +975,17 @@ if number_of_simulations != -1:
     outfile.write("\rSimulations                                    \n")
     outfile.write("  Number of burnin simulations: " + str(number_of_burnin_simulations) + "\n")
     outfile.write("  Number of post-burnin simulations: " + str(number_of_simulations) + "\n")
-    outfile.write("  Effective population size: " + "{0:.2f}".format(numpy.mean(simulation_effective_population_sizes)))
+    outfile.write("  Mean effective population size: " + "{0:.2f}".format(numpy.mean(simulation_mean_effective_population_sizes)))
     outfile.write(" (+/-")
-    outfile.write("{0:.2f}".format(numpy.std(simulation_effective_population_sizes)))
+    outfile.write("{0:.2f}".format(numpy.std(simulation_mean_effective_population_sizes)))
+    outfile.write(")\n")
+    outfile.write("  Effective population size before second divergence: " + "{0:.2f}".format(numpy.mean(simulation_effective_population_sizes_before)))
+    outfile.write(" (+/-")
+    outfile.write("{0:.2f}".format(numpy.std(simulation_effective_population_sizes_before)))
+    outfile.write(")\n")
+    outfile.write("  Effective population size after second divergence: " + "{0:.2f}".format(numpy.mean(simulation_effective_population_sizes_after)))
+    outfile.write(" (+/-")
+    outfile.write("{0:.2f}".format(numpy.std(simulation_effective_population_sizes_after)))
     outfile.write(")\n")
     outfile.write("  Divergence time ratio: " + "{0:.4f}".format(numpy.mean(simulation_times_of_second_divergence)/1000))
     outfile.write(" (+/-")
@@ -1149,7 +1199,7 @@ else:
             weighted_f4s = []
             for x in range(len(original_body_lines)):
                 if original_body_lines[x].strip() != "":
-                    if "0,0" not in original_body_lines[x]:
+                    if " 0,0" not in original_body_lines[x] and original_body_lines[x][:3] != "0,0":
                         valid_body_lines2.append(original_body_lines[x])
                         valid_index_weights.append(index_weights[x])
             # Replace "N"s in valid_index_weights so that the mean weight is 1.
@@ -1191,7 +1241,6 @@ else:
                     elif weighted_f4 == 0 and simulated_f4 != weighted_f4:
                         number_of_simulations_with_f4_more_extreme_than_observed_weighted += 1
                 proportion_of_simulations_with_f4_more_extreme_than_observed_weighted = number_of_simulations_with_f4_more_extreme_than_observed_weighted/number_of_simulations
-
 
     if observed_f4 < 0:
         if len(outlier_valid_body_lines) == 1:
