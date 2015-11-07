@@ -1,6 +1,6 @@
 #!/usr/local/bin/python3
 
-# Michael Matschiner, 2015-05-21
+# Michael Matschiner, 2015-11-08
 # michaelmatschiner@mac.com
 
 # Import libraries and make sure we're on python 3.
@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(
       %(prog)s
     ----------------------------------------------------------------------
       Calculate the f4 statistic from SNP data in Treemix format and assess
-      support for introgression by jackknifing and coalescent simulations.
+      support for introgression by block jackknife and coalescent simulations.
       For format specification, see the Treemix manual at
       https://bitbucket.org/nygcresearch/treemix/downloads.
       The f4 statistic was originally described by Reich et al. (2009): 
@@ -30,7 +30,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     '-v', '--version',
     action='version',
-    version='%(prog)s 0.91'
+    version='%(prog)s 0.92'
     )
 parser.add_argument(
     '-k',
@@ -38,7 +38,7 @@ parser.add_argument(
     type=int,
     default=[-1],
     dest='jackknife_k',
-    help="Number of SNPs per block for estimation of standard errors by jackknifing (default: off)."
+    help="Number of SNPs per block for jackknife estimation of standard errors (default: off)."
     )
 parser.add_argument(
     '-s',
@@ -127,7 +127,7 @@ if log_file_name != "-1":
 outfile.write("\n")
 outfile.write("  f4.py\n")
 outfile.write("----------------------------------------------------------------------\n")
-outfile.write("  Michael Matschiner | 2015-05-21 | evoinformatics.eu\n")
+outfile.write("  Michael Matschiner | 2015-11-08 | evoinformatics.eu\n")
 outfile.write("\n")
 outfile.write("Input\n")
 if infile.name == '<stdin>':
@@ -285,14 +285,14 @@ observed_f4 = numpy.mean(observed_f4s)
 outfile.write("  Observed f4: " + "{0:.5f}".format(observed_f4) + "\n")
 outfile.write("\n")
 
-# If a k value has been specified, use it for block jack-knifing.
+# If a k value has been specified, use it for a block jackknife procedure.
 if jackknife_k != -1:
-    outfile.write("Block jackknifing\n")
+    outfile.write("Block jackknife\n")
     if jackknife_k > len(body_lines):
-        print("ERROR: The specified jackknifing block size (option 'k') is greater than the number of SNPs!")
+        print("ERROR: The specified jackknife block size (option 'k') is greater than the number of SNPs!")
         sys.exit(1)
     elif jackknife_k < 1:
-        print("ERROR: The specified jackknifing block size (option '-k') is smaller than 1!")
+        print("ERROR: The specified jackknife block size (option '-k') is smaller than 1!")
         sys.exit(1)
     body_lines_per_block = [[]]
     for x in range(len(body_lines)):
@@ -305,7 +305,7 @@ if jackknife_k != -1:
         if len(item) == jackknife_k:
             body_lines_per_valid_block.append(item)
     if len(body_lines_per_valid_block) < 2:
-        print("ERROR: The specified jack-knifing block size (k) allows only a single block of SNPs!")
+        print("ERROR: The specified jackknife block size (k) allows only a single block of SNPs!")
         sys.exit(1)
     f4_per_block = []
     for block_body_lines in body_lines_per_valid_block:
@@ -379,13 +379,16 @@ if number_of_simulations != -1:
     number_of_burnin_simulations = 0
     while len(simulated_f4s) < number_of_simulations:
         if len(simulated_f4s) == 0:
-            outfile.write("\rRunning simulations (burnin " + str(number_of_burnin_simulations) + ")...")
+            if sys.stdout.isatty():
+                outfile.write("\rRunning simulations (burnin " + str(number_of_burnin_simulations) + ")...")
             number_of_burnin_simulations += 1
         elif len(simulated_f4s) == 1:
-            outfile.write("\r                                                                                ")
-            outfile.write("\rRunning simulations (1/" + str(number_of_simulations) + ")...")
+            if sys.stdout.isatty():
+                outfile.write("\r                                                                                ")
+                outfile.write("\rRunning simulations (1/" + str(number_of_simulations) + ")...")
         else:
-            outfile.write("\rRunning simulations (" + str(len(simulated_f4s)) + "/" + str(number_of_simulations) + ")...")
+            if sys.stdout.isatty():
+                outfile.write("\rRunning simulations (" + str(len(simulated_f4s)) + "/" + str(number_of_simulations) + ")...")
         effective_population_size_before = mean_effective_population_size*(500/(1000-time_of_second_divergence))
         effective_population_size_after = mean_effective_population_size*(500/time_of_second_divergence)
         effective_population_size_ratio = effective_population_size_before/effective_population_size_after
@@ -819,7 +822,10 @@ if number_of_simulations != -1:
                                     sys.exit(1)
                         f4_per_block.append(numpy.mean(block_f4s))
                     simulated_jackknife_f4_standard_error = stats.sem(f4_per_block)
-                    simulated_jackknife_f4_z_zcore = simulated_f4/simulated_jackknife_f4_standard_error
+                    if simulated_jackknife_f4_standard_error == 0:
+                        simulated_jackknife_f4_z_zcore = None
+                    else:
+                        simulated_jackknife_f4_z_zcore = simulated_f4/simulated_jackknife_f4_standard_error
 
             # Check the fit of the parameters of effective population size and time of second divergence.
             # Decide which of the two variable is adjusted, based on how far each of the two parameters is from its optimum.
@@ -898,7 +904,7 @@ if number_of_simulations != -1:
 
             if converged:
                 simulated_f4s.append(simulated_f4)
-                if jackknife_k != -1:
+                if jackknife_k != -1 and simulated_jackknife_f4_z_zcore != None:
                     simulated_jackknife_f4_z_zcores.append(simulated_jackknife_f4_z_zcore)
                 simulation_proportion_of_snps_variable_in_more_than_one_population.append(number_of_snps_variable_in_more_than_one_population_this_simulation/number_of_valid_snps)
                 simulation_proportion_of_snps_variable_on_both_sides_of_the_root.append(number_of_snps_variable_on_both_sides_of_the_root_this_simulation/number_of_valid_snps)
@@ -1038,7 +1044,7 @@ if number_of_simulations != -1:
             outfile.write("  Proportion of simulated jackknife blocks f4 z-values larger than the observed: ")
         elif observed_jackknife_f4_z_zcore == 0:
             outfile.write("  Proportion of simulated jackknife blocks f4 z-values different from the observed: ")
-        outfile.write("{0:.4f}".format(number_of_simulations_with_jackknife_f4_z_score_more_extreme_than_observed/number_of_simulations))
+        outfile.write("{0:.4f}".format(number_of_simulations_with_jackknife_f4_z_score_more_extreme_than_observed/len(simulated_jackknife_f4_z_zcores)))
         outfile.write("\n")
     outfile.write("\n")
 
