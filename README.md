@@ -51,6 +51,10 @@ Finally, the <span style="font-family:Courier;">-l</span> option, followed by a 
 #### F4 output
 Except when the <span style="font-family:Courier;">-o</span> or <span style="font-family:Courier;">-l</span> options are used, F4 does not write any files, but only reports to stdout.
 
+#### How to cite F4
+F4 is used and described in our publication on introgression between tribes of the East African cichlid radiation:
+Meyer BS, Matschiner M, Salzburger W (2016) Disentangling incomplete lineage sorting and introgression to refine species-tree estimates for Lake Tanganyika cichlid fishes. BioRxiv preprint, doi: http://dx.doi.org/10.1101/039396.
+
 #### References
 * Reich D, Thangaraj K, Patterson N, Price AL, Singh L (2009) Reconstructing Indian population history. Nature 461, 489-494.
 * Pickrell JK, Pritchard JK (2012) Inference of population splits and mixtures from genome-wide allele frequency data. PLoS Genetics 8, e1002967.
