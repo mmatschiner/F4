@@ -53,6 +53,7 @@ Except when the <span style="font-family:Courier;">-o</span> or <span style="fon
 
 #### How to cite F4
 F4 is used and described in our publication on introgression between tribes of the East African cichlid radiation:
+
 Meyer BS, Matschiner M, Salzburger W (2016) Disentangling incomplete lineage sorting and introgression to refine species-tree estimates for Lake Tanganyika cichlid fishes. BioRxiv preprint, doi: http://dx.doi.org/10.1101/039396.
 
 #### References
