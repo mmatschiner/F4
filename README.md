@@ -14,41 +14,41 @@ The tricky part however is not to calculate the f4-statistic, but to assess supp
 The approach chosen by F4 is therefore to run simulations to assess support for introgression. After all, we're not so much interested in whether the observed f4-statistic is different from zero, but in whether or not it could be produced by incomplete lineage sorting alone, without any introgression. F4 uses the coalescent software fastsimcoal2 (Excoffier et al. 2013) to produce SNP data sets that resemble the actual SNP data set, with migration rates set to zero and therefore strictly without introgression. All simulated data sets have the same number of individuals and SNPs, and are masked to include the same amount of missing data per population and SNP as the original data set. Further, a burn-in phase is used to automatically adjust simulation parameters (effective population size and relative divergence times) so that the resulting SNP variation matches the observed, both between all populations and between the two pairs of populations. Thus, the simulated data sets should be equivalent to the original data set, but have been produced completely without introgression. Finally, F4 calculates the f4-statistic for each simulated data set and reports the proportion of these that is more extreme than the observed. If the number of simulations is large enough, this proportion of more extreme values can be taken as the probability of obtaining this f4 value (or a more extreme one) without introgression. Thus if this probability is small enough (e.g. < 0.05), it supports introgression between the two pairs of populations. It does not, however, indicate the directionality of introgression.
 
 #### Requirements for F4
-F4 is written in python3, therefore this version of python must be installed. It also uses a number of python packages, most of these however are likely to be installed on your machine anyway, if you have python. Only the two packages numpy and scipy may require additional installations. Importantly, F4 uses fastsimcoal2 for coalescent simulations, thus this program needs to be installed, and needs to be executable with <span style="font-family:Courier;">fsc252</span>, for F4 to run.
+F4 is written in python3, therefore this version of python must be installed. It also uses a number of python packages, most of these however are likely to be installed on your machine anyway, if you have python. Only the two packages numpy and scipy may require additional installations. Importantly, F4 uses fastsimcoal2 for coalescent simulations, thus this program needs to be installed, and needs to be executable with `fsc252`, for F4 to run.
 
 #### F4 input
 To keep things simple (and to allow comparison), F4 uses the exact same input format as Treemix. It is described in the Treemix manual that you can download from [here](https://bitbucket.org/nygcresearch/treemix/wiki/Home ), but it also is simple enough to describe: It starts with a header line that lists the four population names, separated by spaces. It is followed by one line per SNP, listing the allele frequencies per population, again separated by spaces. This is how it goes:
 
-<span style="font-family:Courier;">
+```
 pop1 pop2 pop3 pop4  
 4,2 0,8 5,3 10,0  
 0,6 0,8 0,8 3,7  
-...  
-</span>
+...
+```  
 
 If your data does not consist of (ideally) unlinked SNPs, but of different blocks of linked SNPs, then these can be specified in the input file as above, but simply with additional empty lines to separate the individual blocks. This will not influence the calculations of the observed f4 value, but simulations will be performed accordingly, so that the number and lengths of simulated linkage blocks matches exactly that of the blocks in the input file. Thus, the reported proportion of simulated f4 values that are more extreme than the observed f4 value should still be a reliable measure of introgression, just as it is when the data set consists only of unlinked SNPs.
 
 #### Example file
 
-The example file <span style="font-family:Courier;">example.txt</span> can be found in the same directory as f4.py. The data come from a RAD sequencing data set of Sarotherodon cichlid fishes, published by Martin et al. (2015), on the Dryad digital repository (file Sarotherodon-pstacks-map3-mind95-geno5.ped in archive Sarotherodon-plink-nexus-STRUCTURE-files.zip, [here](http://datadryad.org/resource/doi:10.5061/dryad.b28p1 )). As you'll see by running this example file, there is good support for introgression in this data set, despite small samples sizes (betwen 1 and 4 individuals per population) and large amounts of missing data for some of the individuals. Some of the SNPs in this data set appear to be linked (as apparently multiple SNPs per RAD tag were used), but the pattern of introgression persists even after downweighting clusters of f4 outlier SNPs.
+The example file `example.txt` can be found in the same directory as f4.py. The data come from a RAD sequencing data set of Sarotherodon cichlid fishes, published by Martin et al. (2015), on the Dryad digital repository (file Sarotherodon-pstacks-map3-mind95-geno5.ped in archive Sarotherodon-plink-nexus-STRUCTURE-files.zip, [here](http://datadryad.org/resource/doi:10.5061/dryad.b28p1 )). As you'll see by running this example file, there is good support for introgression in this data set, despite small samples sizes (betwen 1 and 4 individuals per population) and large amounts of missing data for some of the individuals. Some of the SNPs in this data set appear to be linked (as apparently multiple SNPs per RAD tag were used), but the pattern of introgression persists even after downweighting clusters of f4 outlier SNPs.
 
 #### Running F4
 To run F4, simply type
 
-<span style="font-family:Courier;">python3 f4.py example.txt</span>
+`python3 f4.py example.txt`
 
 With default settings, though, F4 will only calculate the f4-statistic of the original data set. To perform block jackknifing and simulations, use
 
-<span style="font-family:Courier;">python3 f4.py -k 10 -s 1000 example.txt</span>
+`python3 f4.py -k 10 -s 1000 example.txt`
 
-This will use jackknife blocks of 10 SNPs each, and conduct 1000 coalescent simulations. If simulated data sets should be written, cause you would also like to use them with Treemix, use the <span style="font-family:Courier;">-o</span> option, followed by the name of a directory into which files should be written:
+This will use jackknife blocks of 10 SNPs each, and conduct 1000 coalescent simulations. If simulated data sets should be written, cause you would also like to use them with Treemix, use the `-o` option, followed by the name of a directory into which files should be written:
 
-<span style="font-family:Courier;">python3 f4.py -k 10 -s 1000 -o temp example.txt</span>
+`python3 f4.py -k 10 -s 1000 -o temp example.txt`
 
-Finally, the <span style="font-family:Courier;">-l</span> option, followed by a file name (and only in combination with the <span style="font-family:Courier;">-s</span> option) will write a log file that contains for each simulation the effective population size parameter and the time of the second divergence used for the simulation, as well as the resulting proportion of SNPs in the simulated data set that are variable in more than one population, and the proportion of SNPs that are variable on both sides of the root split. The first two parameters (effective population size and time of the second divergence) can't easily be translated into anything biologically meaningful since the time of the first divergence event (the root) is arbitrarily fixed to 1000 time units. Nevertheless, changing these two parameters also changes the resulting proportions of variable SNPs, and thus, the first two parameters can be iteratively optimized to produce a data set that matches the observed data set in terms of SNP variability. And this optimization is exactly what's happening automatically during the burnin phase of the simulations. The log file allows you to assess convergence of these parameters, as well as of the simulated f4 values. It is written in a format that can be read by [Tracer] (http://tree.bio.ed.ac.uk/software/tracer/).
+Finally, the `-l` option, followed by a file name (and only in combination with the `-s` option) will write a log file that contains for each simulation the effective population size parameter and the time of the second divergence used for the simulation, as well as the resulting proportion of SNPs in the simulated data set that are variable in more than one population, and the proportion of SNPs that are variable on both sides of the root split. The first two parameters (effective population size and time of the second divergence) can't easily be translated into anything biologically meaningful since the time of the first divergence event (the root) is arbitrarily fixed to 1000 time units. Nevertheless, changing these two parameters also changes the resulting proportions of variable SNPs, and thus, the first two parameters can be iteratively optimized to produce a data set that matches the observed data set in terms of SNP variability. And this optimization is exactly what's happening automatically during the burnin phase of the simulations. The log file allows you to assess convergence of these parameters, as well as of the simulated f4 values. It is written in a format that can be read by [Tracer](http://tree.bio.ed.ac.uk/software/tracer/).
 
 #### F4 output
-Except when the <span style="font-family:Courier;">-o</span> or <span style="font-family:Courier;">-l</span> options are used, F4 does not write any files, but only reports to stdout.
+Except when the `-o` or `-l` options are used, F4 does not write any files, but only reports to stdout.
 
 #### How to cite F4
 F4 is described and applied in our publication on introgression between tribes of the East African cichlid radiation:
