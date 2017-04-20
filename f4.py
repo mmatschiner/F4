@@ -376,6 +376,7 @@ if number_of_simulations != -1:
     mean_effective_population_size_has_been_too_small = False
     time_of_second_divergence_has_been_too_large = False
     time_of_second_divergence_has_been_too_small = False
+    time_of_second_divergence_at_boundary_occurrences = 0
     number_of_burnin_simulations = 0
     while len(simulated_f4s) < number_of_simulations:
         if len(simulated_f4s) == 0:
@@ -841,6 +842,7 @@ if number_of_simulations != -1:
                     time_of_second_divergence += 10*random.random()
                     if time_of_second_divergence > 999:
                         time_of_second_divergence = 999
+                        time_of_second_divergence_at_boundary_occurrences += 1
                 else:
                     if random.randint(0,1) == 0:
                         mean_effective_population_size = max(4, int(mean_effective_population_size/mean_effective_population_size_scaler))
@@ -848,6 +850,7 @@ if number_of_simulations != -1:
                         time_of_second_divergence += 10*random.random()
                         if time_of_second_divergence > 999:
                             time_of_second_divergence = 999
+                            time_of_second_divergence_at_boundary_occurrences += 1
             elif number_of_snps_variable_in_more_than_one_population_this_simulation < number_of_snps_variable_in_more_than_one_population:
                 if number_of_snps_variable_on_both_sides_of_the_root_this_simulation > number_of_snps_variable_on_both_sides_of_the_root:
                     # Decrease the time_of_second_divergence.
@@ -855,6 +858,7 @@ if number_of_simulations != -1:
                     time_of_second_divergence -= 10*random.random()
                     if time_of_second_divergence < 1:
                         time_of_second_divergence = 1
+                        time_of_second_divergence_at_boundary_occurrences += 1
                 elif number_of_snps_variable_on_both_sides_of_the_root_this_simulation < number_of_snps_variable_on_both_sides_of_the_root:
                     # Increase the mean_effective_population_size.
                     mean_effective_population_size_has_been_too_small = True
@@ -864,6 +868,7 @@ if number_of_simulations != -1:
                         time_of_second_divergence -= 10*random.random()
                         if time_of_second_divergence < 1:
                             time_of_second_divergence = 1
+                            time_of_second_divergence_at_boundary_occurrences += 1
                     else:
                         mean_effective_population_size = int(mean_effective_population_size*mean_effective_population_size_scaler)
             else:
@@ -876,6 +881,7 @@ if number_of_simulations != -1:
                         time_of_second_divergence += 10*random.random()
                         if time_of_second_divergence > 999:
                             time_of_second_divergence = 999
+                            time_of_second_divergence_at_boundary_occurrences += 1
                     else:
                         if random.randint(0,1) == 0:
                             mean_effective_population_size = max(4, int(mean_effective_population_size/mean_effective_population_size_scaler))
@@ -883,6 +889,7 @@ if number_of_simulations != -1:
                             time_of_second_divergence += 10*random.random()
                             if time_of_second_divergence > 999:
                                 time_of_second_divergence = 999
+                                time_of_second_divergence_at_boundary_occurrences += 1
                 else: 
                     if number_of_snps_variable_on_both_sides_of_the_root_this_simulation > number_of_snps_variable_on_both_sides_of_the_root:
                         # Decrease the time_of_second_divergence.
@@ -890,6 +897,7 @@ if number_of_simulations != -1:
                         time_of_second_divergence -= 10*random.random()
                         if time_of_second_divergence < 1:
                             time_of_second_divergence = 1
+                            time_of_second_divergence_at_boundary_occurrences += 1
                     elif number_of_snps_variable_on_both_sides_of_the_root_this_simulation < number_of_snps_variable_on_both_sides_of_the_root:
                         # Increase the mean_effective_population_size.
                         mean_effective_population_size_has_been_too_small = True
@@ -899,6 +907,7 @@ if number_of_simulations != -1:
                             time_of_second_divergence -= 10*random.random()
                             if time_of_second_divergence < 1:
                                 time_of_second_divergence = 1
+                                time_of_second_divergence_at_boundary_occurrences += 1
                         else:
                             mean_effective_population_size = int(mean_effective_population_size*mean_effective_population_size_scaler)
 
@@ -956,6 +965,11 @@ if number_of_simulations != -1:
                     if proportional_diff1 < 0.05 and proportional_diff2 < 0.05:
                         if converged == False:
                             converged = True
+                elif time_of_second_divergence_at_boundary_occurrences > 100:
+                    if converged == False:
+                        converged = True
+                        print("WARNING: The time of the second divergence event has been at the allowed minimum or maximum value for 100 iterations, which indicates convergence issues.")
+                        print("  F4 will now switch to the post-burnin phase, however, results should be interpreted with caution.")
 
     # Check whether there may have been convergence issues. If both the proportion of SNPs variable in more than one
     # population and the proportion of SNPs variable on both sides of the root lie within the standard deviation of
