@@ -53,10 +53,10 @@ Except when the `-o` or `-l` options are used, F4 does not write any files, but 
 #### How to cite F4
 F4 is described and applied in our publication on introgression between tribes of the East African cichlid radiation:
 
-[Meyer BS, Matschiner M, Salzburger W (2016) Disentangling incomplete lineage sorting and introgression to refine species-tree estimates for Lake Tanganyika cichlid fishes. Systematic Biology, Advance access, doi: 10.1093/sysbio/syw069.](http://sysbio.oxfordjournals.org/content/early/2016/07/27/sysbio.syw069.abstract)
+[Meyer BS, Matschiner M, Salzburger W (2016) Disentangling incomplete lineage sorting and introgression to refine species-tree estimates for Lake Tanganyika cichlid fishes. Systematic Biology, 66, 531-550.](https://academic.oup.com/sysbio/article-abstract/66/4/531/2670093/Disentangling-Incomplete-Lineage-Sorting-and)
 
 #### References
 * Reich D, Thangaraj K, Patterson N, Price AL, Singh L (2009) Reconstructing Indian population history. Nature 461, 489-494.
 * Pickrell JK, Pritchard JK (2012) Inference of population splits and mixtures from genome-wide allele frequency data. PLoS Genetics 8, e1002967.
 * Excoffier L, Dupanloup I, Huerta-Sañchez E, Sousa VC, Foll M (2013) Robust demographic inference from genomic and SNP data. PLoS Genetics 9, e1003905.
-* Martin CH, Cutler JS, Friel JP, Dening T C, Coop G, Wainwright PC (2015) Complex histories of repeated gene flow in Cameroon crater lake cichlids cast doubt on one of the clearest examples of sympatric speciation. Evolution, doi: 10.1111/evo.12674.
+* Martin CH, Cutler JS, Friel JP, Dening T C, Coop G, Wainwright PC (2015) Complex histories of repeated gene flow in Cameroon crater lake cichlids cast doubt on one of the clearest examples of sympatric speciation. Evolution, 69, 1406-1422.
