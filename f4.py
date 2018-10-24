@@ -24,8 +24,8 @@ parser = argparse.ArgumentParser(
       https://bitbucket.org/nygcresearch/treemix/downloads.
       The f4 statistic was originally described by Reich et al. (2009): 
       http://www.nature.com/nature/journal/v461/n7263/abs/nature08365.html.
-      Simulations are performed using fastsimcoal2, which must be installed
-      and executable with 'fsc252': http://cmpg.unibe.ch/software/fastsimcoal2.
+      Simulations are performed using fastsimcoal2, which must be installed:
+      http://cmpg.unibe.ch/software/fastsimcoal2.
     '''))
 parser.add_argument(
     '-v', '--version',
@@ -65,6 +65,14 @@ parser.add_argument(
     help="Name of a file to which simulation parameters should be written, to assess convergence (mostly for debugging) (default: off)."
     )
 parser.add_argument(
+    '-x',
+    nargs=1,
+    type=str,
+    default=["-1"],
+    dest='fsc_file_name',
+    help="Name of the fastsimcoal2 executable (including full path) (default: fsc252)."
+    )
+parser.add_argument(
     'infile',
     nargs='?',
     type=argparse.FileType('r'),
@@ -85,6 +93,7 @@ jackknife_k = args.jackknife_k[0]
 number_of_simulations = args.number_of_simulations[0]
 output_dir = args.output_dir[0]
 log_file_name = args.log_file_name[0]
+fsc_file_name = args.fsc_file_name[0]
 infile = args.infile
 outfile = args.outfile
 if infile.isatty():
@@ -127,7 +136,7 @@ if log_file_name != "-1":
 outfile.write("\n")
 outfile.write("  f4.py\n")
 outfile.write("----------------------------------------------------------------------\n")
-outfile.write("  Michael Matschiner | 2015-11-08 | evoinformatics.eu\n")
+outfile.write("  Michael Matschiner | 2018-10-24 | evoinformatics.eu\n")
 outfile.write("\n")
 outfile.write("Input\n")
 if infile.name == '<stdin>':
@@ -433,7 +442,7 @@ if number_of_simulations != -1:
             tmp_in = tempfile.NamedTemporaryFile(delete=False)
             tmp_in.write(fsc_input_string.encode('utf-8'))
             tmp_in.close()
-            call_list = ["fsc252", "-i", tmp_in.name, "-n", "1"]
+            call_list = [fsc_file_name, "-i", tmp_in.name, "-n", "1"]
             call(call_list, stdout=FNULL, stderr=FNULL)
 
             # Read the fastsimcoal2 output file.
