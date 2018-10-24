@@ -1008,7 +1008,10 @@ if number_of_simulations != -1:
     elif proportion_of_snps_variable_on_both_sides_of_the_root > upper2:
         convergence_issues = True
 
-    outfile.write("\rSimulations                                    \n")
+    if sys.stdout.isatty():
+        outfile.write("\rSimulations                                    \n")
+    else:
+        outfile.write("Simulations\n")
     outfile.write("  Number of burnin simulations: " + str(number_of_burnin_simulations) + "\n")
     outfile.write("  Number of post-burnin simulations: " + str(number_of_simulations) + "\n")
     outfile.write("  Mean effective population size: " + "{0:.2f}".format(numpy.mean(simulation_mean_effective_population_sizes)))
