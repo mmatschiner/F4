@@ -395,11 +395,13 @@ if number_of_simulations != -1:
         if len(simulated_f4s) == 0:
             if sys.stdout.isatty():
                 outfile.write("\rRunning simulations (burnin " + str(number_of_burnin_simulations) + ")...")
+                outfile.flush()
             number_of_burnin_simulations += 1
         elif len(simulated_f4s) == 1:
             if sys.stdout.isatty():
                 outfile.write("\r                                                                                ")
                 outfile.write("\rRunning simulations (1/" + str(number_of_simulations) + ")...")
+                outfile.flush()
         else:
             if sys.stdout.isatty():
                 outfile.write("\rRunning simulations (" + str(len(simulated_f4s)) + "/" + str(number_of_simulations) + ")...")
