@@ -143,6 +143,7 @@ if infile.name == '<stdin>':
     outfile.write("  File name: STDIN\n")
 else:
     outfile.write("  File name: " + str(infile.name) + "\n")
+outfile.flush()
 
 # Read the input and calculate the f4 statistic.
 instring = infile.read()
@@ -175,6 +176,7 @@ if len(pops) != 4:
     print("ERROR: The input file should contain data for exactly four populations. The header line has only " + str(len(pops)) + " columns!")
     sys.exit(1)
 outfile.write("  Assumed population topology: (" +  pops[0] + "," + pops[1] + "),(" + pops[2] + "," + pops[3] + ")\n")
+outfile.flush()
 
 observed_f4s = []
 number_of_valid_snps = 0
@@ -293,6 +295,7 @@ outfile.write("  Proportion of SNPs variable on both sides of the root: " + "{0:
 observed_f4 = numpy.mean(observed_f4s)
 outfile.write("  Observed f4: " + "{0:.5f}".format(observed_f4) + "\n")
 outfile.write("\n")
+outfile.flush()
 
 # If a k value has been specified, use it for a block jackknife procedure.
 if jackknife_k != -1:
@@ -361,6 +364,7 @@ if jackknife_k != -1:
         outfile.write("  Shapiro-Wilk test for normality of Jackknife block f4 values, W: NA\n")
         outfile.write("  Shapiro-Wilk test for normality of Jackknife block f4 values, p: NA\n")
     outfile.write("\n")
+    outfile.flush()
 
 # Run simulations to assess support for f4 < 0.
 if number_of_simulations != -1:
@@ -399,6 +403,7 @@ if number_of_simulations != -1:
         else:
             if sys.stdout.isatty():
                 outfile.write("\rRunning simulations (" + str(len(simulated_f4s)) + "/" + str(number_of_simulations) + ")...")
+                outfile.flush()
         effective_population_size_before = mean_effective_population_size*(500/(1000-time_of_second_divergence))
         effective_population_size_after = mean_effective_population_size*(500/time_of_second_divergence)
         effective_population_size_ratio = effective_population_size_before/effective_population_size_after
@@ -1070,10 +1075,12 @@ if number_of_simulations != -1:
         outfile.write("{0:.4f}".format(number_of_simulations_with_jackknife_f4_z_score_more_extreme_than_observed/len(simulated_jackknife_f4_z_zcores)))
         outfile.write("\n")
     outfile.write("\n")
+    outfile.flush()
 
 outfile.write("Interpretation\n")
 if observed_f4 == 0:
     outfile.write("  The observed f4 value is exactly zero, there is no sign of introgression.\n")
+    outfile.flush()
 else:
     if number_of_simulations == -1:
         outfile.write("  The observed f4 value differs from zero, but whether the observed difference\n")
@@ -1103,6 +1110,7 @@ else:
             else:
                 outfile.write("  simulations. To assess convergence in more detail, use Tracer to open the\n")
                 outfile.write("  log file '" + str(log_file_name) + "'.\n")
+    outfile.flush()
 
     # Check which and how many SNPs are driving this pattern.
     outlier_valid_body_lines = []
@@ -1307,6 +1315,7 @@ else:
             outfile.write("  More information for these " + str(len(outlier_valid_body_lines)) + " SNP is listed below.\n")
         else:
             print("ERROR: Unexpected result during search for outlier f4 values")
+        outfile.flush()
 
     if observed_f4 > 0:
         if len(outlier_valid_body_lines) == 1:
@@ -1367,6 +1376,7 @@ else:
             outfile.write(outlier_line)
 
 outfile.write("\n")
+outfile.flush()
 
 if number_of_simulations != -1:
     if log_file_name != "-1" or output_dir != "-1":
@@ -1377,4 +1387,4 @@ if number_of_simulations != -1:
         outfile.write("  Post-burnin simulated data sets (readable with Treemix): " + str(number_of_simulations) + " files in " + str(output_dir) + "\n")
     if log_file_name != "-1" or output_dir != "-1":
         outfile.write("\n")
-
+outfile.flush()
