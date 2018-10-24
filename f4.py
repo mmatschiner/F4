@@ -68,7 +68,7 @@ parser.add_argument(
     '-x',
     nargs=1,
     type=str,
-    default=["-1"],
+    default=["fsc252"],
     dest='fsc_file_name',
     help="Name of the fastsimcoal2 executable (including full path) (default: fsc252)."
     )
