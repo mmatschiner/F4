@@ -1157,7 +1157,7 @@ else:
     for x in range(len(outlier_valid_body_lines)):
         outlier_snps_body_line_indices = []
         for y in range(len(original_body_lines)):
-            if original_body_lines[y] == outlier_valid_body_lines[x]:
+            if original_body_lines[y].strip() == outlier_valid_body_lines[x]:
                 outlier_snps_body_line_indices.append(y)
         # Select the first line index that has not been printed yet.
         selected_outlier_snps_body_line_index = 0
